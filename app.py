@@ -160,17 +160,17 @@ CUSTOM_CSS = """
 }
 """
 
-with gr.Blocks(title="Fruit Disease Detection & Diagnosis") as demo:
+with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as demo:
     # Header
     gr.HTML("""
     <div class="main-header">
-        <h1>🍎 Fruit Disease Detection & Diagnosis</h1>
+        <h1>🍎 Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái</h1>
         <p>Hệ thống AI nhận diện và chẩn đoán bệnh trên cây ăn trái (Táo, Ổi, Xoài, Lựu) sử dụng <strong>EfficientNetB0</strong></p>
         <div class="badge-bar">
-            <span class="badge">🎯 Test Accuracy: 88.61%</span>
-            <span class="badge">⚡ F1-Score: 88.48%</span>
+            <span class="badge">🎯 Độ chính xác kiểm thử: 88.61%</span>
+            <span class="badge">⚡ Điểm F1-Score: 88.48%</span>
             <span class="badge">🍏 17 Lớp bệnh & quả</span>
-            <span class="badge">🚀 TFLite Optimized</span>
+            <span class="badge">🚀 Tối ưu hóa mô hình TFLite</span>
         </div>
     </div>
     """)
@@ -182,7 +182,7 @@ with gr.Blocks(title="Fruit Disease Detection & Diagnosis") as demo:
             with gr.Row():
                 with gr.Column(scale=1):
                     img_input = gr.Image(type="pil", label="Tải ảnh quả hoặc lá bị bệnh")
-                    conf_slider = gr.Slider(minimum=0.10, maximum=1.00, value=0.75, step=0.01, label="Ngưỡng hiển thị (Confidence Threshold)")
+                    conf_slider = gr.Slider(minimum=0.10, maximum=1.00, value=0.75, step=0.01, label="Ngưỡng tin cậy chẩn đoán tối thiểu")
                     btn_predict = gr.Button("🔍 Phân Tích & Chẩn Đoán", variant="primary", size="lg")
 
                 with gr.Column(scale=1):

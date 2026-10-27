@@ -31,23 +31,23 @@ FRUIT_CLASSES = [
 ]
 
 FRUIT_VN_MAP = {
-    "APPLE_Blotch_Apple": "🍎 Táo - Bệnh đốm lá đốm quả (Marssonina Blotch)",
-    "APPLE_Healthy_Apple": "🍎 Táo - Khỏe mạnh (Healthy Apple)",
-    "APPLE_Rot_Apple": "🍎 Táo - Bệnh thối quả (Black Rot / Bitter Rot)",
-    "APPLE_Scab_Apple": "🍎 Táo - Bệnh vảy nấm (Apple Scab)",
-    "GUAVA_Anthracnose_Guava": "🍈 Ổi - Bệnh thán thư (Anthracnose)",
-    "GUAVA_Fruitfly_Guava": "🍈 Ổi - Bị ruồi đục quả tấn công (Fruitfly Damage)",
-    "GUAVA_Healthy_Guava": "🍈 Ổi - Khỏe mạnh (Healthy Guava)",
-    "MANGO_Alternaria_Mango": "🥭 Xoài - Bệnh đốm lá đốm quả do nấm Alternaria",
-    "MANGO_Anthracnose_Mango": "🥭 Xoài - Bệnh thán thư (Anthracnose)",
-    "MANGO_Black Mould Rot (Aspergillus)_Mango": "🥭 Xoài - Bệnh thối mốc đen (Aspergillus Black Mould)",
-    "MANGO_Healthy_Mango": "🥭 Xoài - Khỏe mạnh (Healthy Mango)",
-    "MANGO_Stem and Rot (Lasiodiplodia)_Mango": "🥭 Xoài - Bệnh thối đầu cuống quả (Stem-end Rot)",
-    "POMEGRANATE_Alternaria_Pomegranate": "🫐 Lựu - Bệnh đốm đen thối đen Alternaria",
-    "POMEGRANATE_Anthracnose_Pomegranate": "🫐 Lựu - Bệnh thán thư (Anthracnose)",
-    "POMEGRANATE_Bacterial_Blight_Pomegranate": "🫐 Lựu - Bệnh cháy vi khuẩn (Bacterial Blight)",
+    "APPLE_Blotch_Apple": "🍎 Táo - Bệnh đốm lá đốm quả Marssonina",
+    "APPLE_Healthy_Apple": "🍎 Táo - Cây quả khỏe mạnh",
+    "APPLE_Rot_Apple": "🍎 Táo - Bệnh thối quả (Thối đen / Thối đắng)",
+    "APPLE_Scab_Apple": "🍎 Táo - Bệnh vảy nấm",
+    "GUAVA_Anthracnose_Guava": "🍈 Ổi - Bệnh thán thư",
+    "GUAVA_Fruitfly_Guava": "🍈 Ổi - Bị ruồi đục quả gây hại",
+    "GUAVA_Healthy_Guava": "🍈 Ổi - Cây quả khỏe mạnh",
+    "MANGO_Alternaria_Mango": "🥭 Xoài - Bệnh đốm nấm lá & quả Alternaria",
+    "MANGO_Anthracnose_Mango": "🥭 Xoài - Bệnh thán thư",
+    "MANGO_Black Mould Rot (Aspergillus)_Mango": "🥭 Xoài - Bệnh thối mốc đen Aspergillus",
+    "MANGO_Healthy_Mango": "🥭 Xoài - Cây quả khỏe mạnh",
+    "MANGO_Stem and Rot (Lasiodiplodia)_Mango": "🥭 Xoài - Bệnh thối đầu cuống quả Lasiodiplodia",
+    "POMEGRANATE_Alternaria_Pomegranate": "🫐 Lựu - Bệnh đốm thối đen Alternaria",
+    "POMEGRANATE_Anthracnose_Pomegranate": "🫐 Lựu - Bệnh thán thư",
+    "POMEGRANATE_Bacterial_Blight_Pomegranate": "🫐 Lựu - Bệnh cháy vi khuẩn",
     "POMEGRANATE_Cercospora_Pomegranate": "🫐 Lựu - Bệnh đốm mắt chim Cercospora",
-    "POMEGRANATE_Healthy_Pomegranate": "🫐 Lựu - Khỏe mạnh (Healthy Pomegranate)"
+    "POMEGRANATE_Healthy_Pomegranate": "🫐 Lựu - Cây quả khỏe mạnh"
 }
 
 DISEASE_INFO = {

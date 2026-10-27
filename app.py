@@ -74,13 +74,12 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     if confidence_val < conf_threshold:
         threshold_pct = int(round(conf_threshold * 100)) if conf_threshold <= 1.0 else int(conf_threshold)
         warning_md = f"""
-### ⚠️ Độ Tin Cậy Chưa Đạt Ngưỡng ({best.get('percentage', 'N/A')} < {threshold_pct}%):
-- **Dự đoán khả dĩ nhất**: **{best.get('vn_name')}**
-- **Đối tượng**: **{fruit_type}**
+### ⚠️ Chưa Đủ Độ Tin Cậy Để Kết Luận ({best.get('percentage', 'N/A')} < {threshold_pct}%):
+- **Tình trạng nhận diện**: **Chưa xác định rõ loại bệnh**
 
 💡 **Khuyến nghị**:
-- Ảnh có thể bị mờ, chụp xa hoặc góc chụp chưa bao quát được vùng bệnh.
-- Vui lòng chụp/tải ảnh cận cảnh rõ nét hơn, hoặc kéo giảm thanh **Ngưỡng hiển thị** bên trái để xem đầy đủ chi tiết tác nhân.
+- Hình ảnh có thể bị mờ, thiếu sáng, góc chụp quá xa hoặc triệu chứng chưa rõ ràng.
+- Vui lòng chụp hoặc tải lại ảnh cận cảnh, lấy nét trực tiếp vào vết bệnh để hệ thống chẩn đoán chính xác.
 """
         return result["gradcam_image"], warning_md
 
@@ -182,7 +181,6 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as d
             with gr.Row():
                 with gr.Column(scale=1):
                     img_input = gr.Image(type="pil", label="Tải ảnh quả hoặc lá bị bệnh")
-                    conf_slider = gr.Slider(minimum=0.10, maximum=1.00, value=0.75, step=0.01, label="Ngưỡng tin cậy chẩn đoán tối thiểu")
                     btn_predict = gr.Button("🔍 Phân Tích & Chẩn Đoán", variant="primary", size="lg")
 
                 with gr.Column(scale=1):
@@ -191,7 +189,7 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as d
 
             btn_predict.click(
                 fn=run_diagnosis,
-                inputs=[img_input, conf_slider],
+                inputs=[img_input],
                 outputs=[img_output, diagnosis_output]
             )
 

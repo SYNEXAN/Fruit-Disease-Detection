@@ -1,0 +1,121 @@
+
+{
+  "0": {
+    "nhan_goc": "APPLE_Blotch_Apple",
+    "ten_tieng_viet": "Bệnh đốm trên táo",
+    "tac_nhan": [
+      "Diplocarpon coronariae",
+      "Alternaria mali"
+    ],
+    "loai": "Vi nấm",
+    "ghi_chu": "Cần xác minh loại bệnh đốm trong dữ liệu gốc"
+  },
+  "1": {
+    "nhan_goc": "APPLE_Healthy_Apple",
+    "ten_tieng_viet": "Táo khỏe mạnh",
+    "tac_nhan": [],
+    "loai": "Không có"
+  },
+  "2": {
+    "nhan_goc": "APPLE_Rot_Apple",
+    "ten_tieng_viet": "Bệnh thối quả táo",
+    "tac_nhan": [
+      "Penicillium expansum",
+      "Botrytis cinerea",
+      "Colletotrichum spp."
+    ],
+    "loai": "Vi nấm",
+    "ghi_chu": "Nhiều loài nấm có thể gây thối quả táo"
+  },
+  "3": {
+    "nhan_goc": "APPLE_Scab_Apple",
+    "ten_tieng_viet": "Bệnh ghẻ táo",
+    "tac_nhan": ["Venturia inaequalis"],
+    "loai": "Vi nấm"
+  },
+  "4": {
+    "nhan_goc": "GUAVA_Anthracnose_Guava",
+    "ten_tieng_viet": "Bệnh thán thư trên ổi",
+    "tac_nhan": [
+      "Colletotrichum gloeosporioides",
+      "Colletotrichum spp."
+    ],
+    "loai": "Vi nấm"
+  },
+  "5": {
+    "nhan_goc": "GUAVA_Fruitfly_Guava",
+    "ten_tieng_viet": "Ổi bị ruồi đục quả",
+    "tac_nhan": ["Tephritidae"],
+    "loai": "Côn trùng"
+  },
+  "6": {
+    "nhan_goc": "GUAVA_Healthy_Guava",
+    "ten_tieng_viet": "Ổi khỏe mạnh",
+    "tac_nhan": [],
+    "loai": "Không có"
+  },
+  "7": {
+    "nhan_goc": "MANGO_Alternaria_Mango",
+    "ten_tieng_viet": "Bệnh đốm Alternaria trên xoài",
+    "tac_nhan": ["Alternaria alternata"],
+    "loai": "Vi nấm"
+  },
+  "8": {
+    "nhan_goc": "MANGO_Anthracnose_Mango",
+    "ten_tieng_viet": "Bệnh thán thư trên xoài",
+    "tac_nhan": [
+      "Colletotrichum gloeosporioides",
+      "Colletotrichum acutatum",
+      "Colletotrichum spp."
+    ],
+    "loai": "Vi nấm"
+  },
+  "9": {
+    "nhan_goc": "MANGO_Black Mould Rot (Aspergillus)_Mango",
+    "ten_tieng_viet": "Bệnh thối mốc đen trên xoài",
+    "tac_nhan": ["Aspergillus niger"],
+    "loai": "Vi nấm"
+  },
+  "10": {
+    "nhan_goc": "MANGO_Healthy_Mango",
+    "ten_tieng_viet": "Xoài khỏe mạnh",
+    "tac_nhan": [],
+    "loai": "Không có"
+  },
+  "11": {
+    "nhan_goc": "MANGO_Stem and Rot (Lasiodiplodia)_Mango",
+    "ten_tieng_viet": "Bệnh thối đầu cuống quả xoài",
+    "tac_nhan": ["Lasiodiplodia theobromae"],
+    "loai": "Vi nấm"
+  },
+  "12": {
+    "nhan_goc": "POMEGRANATE_Alternaria_Pomegranate",
+    "ten_tieng_viet": "Bệnh đốm đen Alternaria trên lựu",
+    "tac_nhan": ["Alternaria alternata"],
+    "loai": "Vi nấm"
+  },
+  "13": {
+    "nhan_goc": "POMEGRANATE_Anthracnose_Pomegranate",
+    "ten_tieng_viet": "Bệnh thán thư trên lựu",
+    "tac_nhan": ["Colletotrichum spp."],
+    "loai": "Vi nấm"
+  },
+  "14": {
+    "nhan_goc": "POMEGRANATE_Bacterial_Blight_Pomegranate",
+    "ten_tieng_viet": "Bệnh cháy lá và đốm quả lựu do vi khuẩn",
+    "tac_nhan": ["Xanthomonas axonopodis pv. punicae"],
+    "loai": "Vi khuẩn"
+  },
+  "15": {
+    "nhan_goc": "POMEGRANATE_Cercospora_Pomegranate",
+    "ten_tieng_viet": "Bệnh đốm lá Cercospora trên lựu",
+    "tac_nhan": ["Pseudocercospora punicae"],
+    "loai": "Vi nấm"
+  },
+  "16": {
+    "nhan_goc": "POMEGRANATE_Healthy_Pomegranate",
+    "ten_tieng_viet": "Lựu khỏe mạnh",
+    "tac_nhan": [],
+    "loai": "Không có"
+  }
+}

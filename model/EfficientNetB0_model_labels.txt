@@ -1,0 +1,17 @@
+APPLE_Blotch_Apple
+APPLE_Healthy_Apple
+APPLE_Rot_Apple
+APPLE_Scab_Apple
+GUAVA_Anthracnose_Guava
+GUAVA_Fruitfly_Guava
+GUAVA_Healthy_Guava
+MANGO_Alternaria_Mango
+MANGO_Anthracnose_Mango
+MANGO_Black Mould Rot (Aspergillus)_Mango
+MANGO_Healthy_Mango
+MANGO_Stem and Rot (Lasiodiplodia)_Mango
+POMEGRANATE_Alternaria_Pomegranate
+POMEGRANATE_Anthracnose_Pomegranate
+POMEGRANATE_Bacterial_Blight_Pomegranate
+POMEGRANATE_Cercospora_Pomegranate
+POMEGRANATE_Healthy_Pomegranate

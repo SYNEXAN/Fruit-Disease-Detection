@@ -4,3 +4,18 @@ __pycache__/
 .venv
 .idea/
 .vscode/
+
+# Temporary & Debug images
+cam_*.jpg
+healthy_*.jpg
+debug_*.jpg
+test_*.jpg
+test_out/
+
+# Logs & scratch
+*.log
+kaggle_v7_stdout.txt
+test_feature1.py
+
+# Model archive
+model/archive_v7/

@@ -34,8 +34,9 @@ except ImportError:
 
 import gradio as gr
 
-from inference import predict_image, resolve_model_path
+from inference import predict_image, resolve_model_path, warmup_model
 from classes import FRUIT_CLASSES, FRUIT_VN_MAP, DISEASE_INFO
+from gemini_service import explain_diagnosis_with_gemini
 
 # Sample images directory
 TEST_IMAGES_DIR = ROOT_DIR / "test-images"
@@ -43,7 +44,7 @@ SAMPLE_IMAGES = []
 if TEST_IMAGES_DIR.is_dir():
     SAMPLE_IMAGES = [
         [str(TEST_IMAGES_DIR / f)]
-        for f in os.listdir(TEST_IMAGES_DIR)
+        for f in sorted(os.listdir(TEST_IMAGES_DIR))
         if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
     ]
 
@@ -54,8 +55,8 @@ if TEST_IMAGES_DIR.is_dir():
 def run_diagnosis(input_img, conf_threshold=0.75):
     """
     Handle inference request from Gradio interface.
-    Returns:
-        (annotated_or_cam_image, markdown_diagnosis_card)
+    Executes fast unified DL + Grad-CAM (~0.49s), then Gemini deep analysis (~2s),
+    and returns complete 3-feature diagnosis all at once.
     """
     if input_img is None:
         return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây lên để phân tích.**"
@@ -65,9 +66,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     best = result["best"]
     info = result["disease_info"]
     pathogen = result.get("pathogen_info", {})
-
-    status_icon = "🟢" if info.get("status") == "healthy" else ("🔴" if info.get("status") == "danger" else "🟡")
-    fruit_type = info.get("fruit", "Trái cây")
+    gradcam_img = result.get("gradcam_image")
 
     # Kiểm tra nếu độ tin cậy chưa đạt ngưỡng yêu cầu
     confidence_val = best.get("confidence", 0.0)
@@ -81,9 +80,9 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 - Hình ảnh có thể bị mờ, thiếu sáng, góc chụp quá xa hoặc triệu chứng chưa rõ ràng.
 - Vui lòng chụp hoặc tải lại ảnh cận cảnh, lấy nét trực tiếp vào vết bệnh để hệ thống chẩn đoán chính xác.
 """
-        return result["gradcam_image"], warning_md
+        return gradcam_img, warning_md
 
-    # Format danh sách tác nhân gây bệnh từ TacNhan.json
+    # Chuẩn bị dữ liệu tác nhân đối chiếu từ CSDL (dùng làm cơ sở cho Gemini hoặc fallback)
     tac_nhan_list = pathogen.get("tac_nhan", [])
     if tac_nhan_list:
         tac_nhan_str = ", ".join([f"*{tn}*" for tn in tac_nhan_list])
@@ -93,21 +92,57 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     loai_tac_nhan = pathogen.get("loai", "Không có")
     ghi_chu = pathogen.get("ghi_chu", "")
     ghi_chu_md = f"\n- **Ghi chú thêm**: {ghi_chu}" if ghi_chu else ""
+    initial_pathogen_md = f"- **Nhóm tác nhân**: {loai_tac_nhan}\n- **Tác nhân chính**: {tac_nhan_str}{ghi_chu_md}"
 
-    diagnosis_md = f"""
+    # Gọi Bác sĩ Nông sản (Gemini) để hoàn tất trọn vẹn cả 3 chức năng
+    try:
+        gemini_result = explain_diagnosis_with_gemini(
+            gradcam_image=gradcam_img,
+            best_prediction=best,
+            pathogen_info=pathogen,
+            disease_info=info
+        )
+        explanation_text = gemini_result.get("explanation", "").strip()
+        pathogen_analysis_text = gemini_result.get("pathogen_analysis", "").strip()
+        advice_text = gemini_result.get("advice", "").strip()
+
+        final_diagnosis_md = f"""
 ### 🎯 Kết Quả Dự Đoán:
-- **Bệnh / Tình trạng**: **{best.get('vn_name')}**
+- **Tình trạng**: **{best.get('vn_name')}**
 - **Độ tin cậy**: **{best.get('percentage', 'N/A')}**
-- **Đối tượng**: **{fruit_type}**
+- **Giải thích kết quả**: {explanation_text}
 
 ---
-#### 🔬 Tác Nhân Gây Bệnh:
-- **Tên bệnh chuẩn**: **{pathogen.get('ten_tieng_viet', best.get('vn_name'))}**
-- **Phân loại tác nhân**: **{loai_tac_nhan}**
-- **Tên khoa học của tác nhân**: {tac_nhan_str}{ghi_chu_md}
-"""
 
-    return result["gradcam_image"], diagnosis_md
+#### 🔬 Tác Nhân Gây Bệnh:
+{pathogen_analysis_text}
+
+---
+
+#### 📦 Đề xuất xử lý:
+{advice_text}
+"""
+        return gradcam_img, final_diagnosis_md.strip()
+
+    except Exception as e:
+        print(f"[App] Lỗi phân tích Gemini: {e}")
+        fallback_md = f"""
+### 🎯 Kết Quả Dự Đoán:
+- **Tình trạng**: **{best.get('vn_name')}**
+- **Độ tin cậy**: **{best.get('percentage', 'N/A')}**
+
+---
+
+#### 🔬 Tác Nhân Gây Bệnh:
+{initial_pathogen_md}
+
+---
+
+#### 📦 Đề xuất xử lý:
+- **Phân loại**: {info.get('severity', 'Cảnh báo')}
+- **Xử lý**: {info.get('treatment', 'Theo dõi sát diễn biến vết bệnh và kiểm tra bảo quản.')}
+"""
+        return gradcam_img, fallback_md.strip()
 
 
 # ============================================================
@@ -157,6 +192,41 @@ CUSTOM_CSS = """
     border-radius: 8px;
     margin-top: 10px;
 }
+/* Đồng bộ khung ảnh hiển thị */
+.gradio-image, .gradio-image img, .image-container img {
+    max-height: 380px !important;
+    object-fit: contain !important;
+}
+/* Thu hẹp khoảng cách giữa các khối chẩn đoán */
+.diagnosis-container hr {
+    margin: 8px 0 !important;
+    border: none !important;
+    border-top: 1px solid #e2e8f0 !important;
+}
+.diagnosis-container h3 {
+    margin-top: 4px !important;
+    margin-bottom: 6px !important;
+    font-size: 1.15rem !important;
+}
+.diagnosis-container h4 {
+    margin-top: 8px !important;
+    margin-bottom: 4px !important;
+    font-size: 1.05rem !important;
+}
+.diagnosis-container ul {
+    margin-top: 2px !important;
+    margin-bottom: 4px !important;
+    padding-left: 18px !important;
+}
+.diagnosis-container li {
+    margin-bottom: 3px !important;
+    line-height: 1.45 !important;
+}
+.diagnosis-container p {
+    margin-top: 2px !important;
+    margin-bottom: 4px !important;
+    line-height: 1.45 !important;
+}
 """
 
 with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as demo:
@@ -179,13 +249,25 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as d
         # Tab 1: Image Upload
         with gr.TabItem("🖼️ Tải Ảnh Lên Phân Tích", id="tab_image"):
             with gr.Row():
-                with gr.Column(scale=1):
-                    img_input = gr.Image(type="pil", label="Tải ảnh quả hoặc lá bị bệnh")
+                with gr.Column(scale=1) as left_col:
+                    img_input = gr.Image(type="pil", label="Tải ảnh quả", height=380)
                     btn_predict = gr.Button("🔍 Phân Tích & Chẩn Đoán", variant="primary", size="lg")
 
                 with gr.Column(scale=1):
-                    img_output = gr.Image(type="numpy", label="Ảnh phân tích")
-                    diagnosis_output = gr.Markdown("💡 *Tải ảnh lên và bấm 'Phân Tích & Chẩn Đoán' để xem kết quả dự đoán.*")
+                    img_output = gr.Image(type="numpy", label="Ảnh phân tích", height=380)
+                    diagnosis_output = gr.Markdown("💡 *Tải ảnh lên và bấm 'Phân Tích & Chẩn Đoán' để xem kết quả dự đoán.*", elem_classes=["diagnosis-container"])
+
+            # Đặt Thư viện ảnh mẫu ngay bên dưới nút bấm ở Cột bên trái
+            if SAMPLE_IMAGES:
+                with left_col:
+                    gr.Markdown("### 📂 Thư Viện Ảnh Mẫu (Click để thử nhanh):")
+                    gr.Examples(
+                        examples=SAMPLE_IMAGES,
+                        inputs=img_input,
+                        outputs=[img_output, diagnosis_output],
+                        fn=run_diagnosis,
+                        cache_examples=False
+                    )
 
             btn_predict.click(
                 fn=run_diagnosis,
@@ -193,26 +275,15 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as d
                 outputs=[img_output, diagnosis_output]
             )
 
-            # Sample Gallery
-            if SAMPLE_IMAGES:
-                gr.Markdown("### 📂 Thư Viện Ảnh Mẫu (Click để thử nhanh):")
-                gr.Examples(
-                    examples=SAMPLE_IMAGES,
-                    inputs=img_input,
-                    outputs=[img_output, diagnosis_output],
-                    fn=run_diagnosis,
-                    cache_examples=False
-                )
-
         # Tab 2: Webcam Stream
         with gr.TabItem("📹 Quét Trực Tiếp Qua Camera", id="tab_cam"):
             with gr.Row():
                 with gr.Column(scale=1):
-                    cam_input = gr.Image(sources=["webcam"], type="pil", label="Bật Camera chụp trực tiếp quả/lá")
+                    cam_input = gr.Image(sources=["webcam"], type="pil", label="Bật Camera chụp trực tiếp quả/lá", height=380)
                     btn_cam_predict = gr.Button("📸 Chụp & Nhận Diện Ngay", variant="primary", size="lg")
                 with gr.Column(scale=1):
-                    cam_img_out = gr.Image(type="numpy", label="Ảnh kết quả")
-                    cam_diag_out = gr.Markdown("💡 *Chụp ảnh qua camera để xem kết quả dự đoán.*")
+                    cam_img_out = gr.Image(type="numpy", label="Ảnh phân tích", height=380)
+                    cam_diag_out = gr.Markdown("💡 *Chụp ảnh qua camera để xem kết quả dự đoán.*", elem_classes=["diagnosis-container"])
 
             btn_cam_predict.click(
                 fn=run_diagnosis,
@@ -247,6 +318,8 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as d
             """)
 
 if __name__ == "__main__":
+    print("[App] Pre-warming model and tensor execution graphs...")
+    warmup_model()
     port = int(os.environ.get("PORT", 7860))
     demo.launch(
         server_name="0.0.0.0",

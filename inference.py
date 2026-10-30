@@ -147,13 +147,10 @@ def preprocess_image(
     img_resized = img_pil.resize(IMG_SIZE)
     img_array = np.array(img_resized, dtype=np.float32)
 
-    # EfficientNet preprocessing: rescale / zero-center as per tf.keras
-    try:
-        import tensorflow as tf
-        processed = tf.keras.applications.efficientnet.preprocess_input(img_array.copy())
-    except Exception:
-        # Fallback to standard EfficientNet preprocessing: pass-through or norm
-        processed = img_array
+    # EfficientNet preprocessing: rescale / zero-center
+    # Note: tf.keras.applications.efficientnet.preprocess_input is an identity pass-through
+    # because EfficientNet includes its own Rescaling layer inside the graph.
+    processed = img_array
 
     input_tensor = np.expand_dims(processed, axis=0)
     orig_rgb_uint8 = np.array(img_resized, dtype=np.uint8)
@@ -297,38 +294,54 @@ def generate_tflite_cam(
             for x in range(0, w - patch_size + 1, stride):
                 coords.append((y, x))
 
-    batch_size = len(coords)
-    interpreter.resize_tensor_input(0, [batch_size, h, w, c])
-    interpreter.allocate_tensors()
-    in_idx = interpreter.get_input_details()[0]['index']
-    out_idx = interpreter.get_output_details()[0]['index']
-
-    batch_inputs = np.repeat(input_tensor, batch_size, axis=0)
-    mean_val = np.mean(input_data, axis=(0, 1))
+    # Memory optimization: process perturbation in mini-batches (chunk_size=4)
+    # Prevents CPU XNNPACK from allocating >1,000MB for full 64-patch batch
+    chunk_size = 4
+    total_coords = len(coords)
 
     # Smooth 2D Gaussian window for patches (avoids harsh rectangular box edges)
     gy, gx = np.meshgrid(np.linspace(-1, 1, patch_size), np.linspace(-1, 1, patch_size))
     g_mask = np.exp(-(gx**2 + gy**2) / 0.6)[:, :, np.newaxis]
 
-    for i, (y, x) in enumerate(coords):
-        patch = batch_inputs[i, y:y+patch_size, x:x+patch_size, :]
-        batch_inputs[i, y:y+patch_size, x:x+patch_size, :] = patch * (1.0 - g_mask) + mean_val * g_mask
+    heatmap = np.zeros((h, w), dtype=np.float32)
+    weight_map = np.zeros((h, w), dtype=np.float32)
+    mean_val = np.mean(input_data, axis=(0, 1))
 
-    interpreter.set_tensor(in_idx, batch_inputs)
-    interpreter.invoke()
-    batch_preds = interpreter.get_tensor(out_idx)
+    current_batch_len = 0
+    in_idx = interpreter.get_input_details()[0]['index']
+    out_idx = interpreter.get_output_details()[0]['index']
+
+    for start_idx in range(0, total_coords, chunk_size):
+        sub_coords = coords[start_idx:start_idx + chunk_size]
+        actual_len = len(sub_coords)
+
+        if actual_len != current_batch_len:
+            interpreter.resize_tensor_input(0, [actual_len, h, w, c])
+            interpreter.allocate_tensors()
+            in_idx = interpreter.get_input_details()[0]['index']
+            out_idx = interpreter.get_output_details()[0]['index']
+            current_batch_len = actual_len
+
+        batch_inputs = np.repeat(input_tensor, actual_len, axis=0)
+        for i, (y, x) in enumerate(sub_coords):
+            patch = batch_inputs[i, y:y+patch_size, x:x+patch_size, :]
+            batch_inputs[i, y:y+patch_size, x:x+patch_size, :] = patch * (1.0 - g_mask) + mean_val * g_mask
+
+        interpreter.set_tensor(in_idx, batch_inputs)
+        interpreter.invoke()
+        batch_preds = interpreter.get_tensor(out_idx)
+
+        for i, (y, x) in enumerate(sub_coords):
+            drop = max(0.0, base_score - float(batch_preds[i, top_class]))
+            heatmap[y:y+patch_size, x:x+patch_size] += drop * g_mask[:, :, 0]
+            weight_map[y:y+patch_size, x:x+patch_size] += g_mask[:, :, 0]
 
     # Restore interpreter shape
     interpreter.resize_tensor_input(0, [1, h, w, c])
     interpreter.allocate_tensors()
 
-    # Accumulate drops weighted by Gaussian window
-    heatmap = np.zeros((h, w), dtype=np.float32)
-    weight_map = np.zeros((h, w), dtype=np.float32)
-    for i, (y, x) in enumerate(coords):
-        drop = max(0.0, base_score - float(batch_preds[i, top_class]))
-        heatmap[y:y+patch_size, x:x+patch_size] += drop * g_mask[:, :, 0]
-        weight_map[y:y+patch_size, x:x+patch_size] += g_mask[:, :, 0]
+    import gc
+    gc.collect()
 
     weight_map[weight_map == 0] = 1.0
     heatmap /= weight_map

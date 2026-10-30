@@ -58,13 +58,23 @@ def explain_diagnosis_with_gemini(
     is_healthy = "healthy" in class_name.lower()
     
     loai_tac_nhan = pathogen_info.get("loai", "Chưa phân loại")
-    tac_nhan_list = pathogen_info.get("tac_nhan", [])
-    tac_nhan_str = ", ".join(tac_nhan_list) if tac_nhan_list else "Không có tác nhân gây hại"
+    tac_nhan_list = [tn.strip() for tn in pathogen_info.get("tac_nhan", []) if tn.strip()]
+    has_specific_pathogen = len(tac_nhan_list) > 0
+    tac_nhan_formatted = ", ".join([f"*{tn}*" for tn in tac_nhan_list]) if has_specific_pathogen else ""
+    tac_nhan_str = ", ".join(tac_nhan_list) if has_specific_pathogen else "Không có tác nhân cụ thể"
     ghi_chu = pathogen_info.get("ghi_chu", "")
 
     # Trường hợp 1: Không có API Key -> Trả về nội dung mặc định dễ hiểu
     if not active_key:
-        return _get_default_farmer_fallback(vn_name=vn_name, fruit=fruit, is_healthy=is_healthy)
+        return _get_default_farmer_fallback(
+            vn_name=vn_name,
+            fruit=fruit,
+            is_healthy=is_healthy,
+            phan_loai_tab3=disease_info.get("status", "warning"),
+            has_specific_pathogen=has_specific_pathogen,
+            tac_nhan_formatted=tac_nhan_formatted,
+            loai_tac_nhan=loai_tac_nhan
+        )
 
     # Chuyển đổi định dạng ảnh sang PIL.Image & tối ưu dung lượng payload (thumbnail max 384px)
     pil_img: Optional[Image.Image] = None
@@ -98,7 +108,18 @@ def explain_diagnosis_with_gemini(
         "Lựu": "5°C - 7°C, độ ẩm 90% - 95%"
     }.get(fruit, "kho mát 8°C - 12°C, độ ẩm 85% - 90%")
 
-    # Prompt bác sĩ nông sản: Thân thiện, súc tích, ngắn gọn, để Gemini tự suy luận thực tế
+    # Chỉ dẫn Phần 2: Tác nhân gây bệnh (Văn xuôi tự nhiên, không gạch đầu dòng)
+    if is_healthy:
+        phan_2_instruction = """[PHẦN 2: PHÂN TÍCH TÁC NHÂN GÂY BỆNH]
+(Viết đúng 1 câu ngắn gọn xác nhận: Bề mặt vỏ quả nguyên vẹn, tế bào biểu bì phát triển tốt, không ghi nhận dấu hiệu xâm nhiễm của các loài nấm bệnh hay vi khuẩn.)"""
+    elif has_specific_pathogen:
+        phan_2_instruction = f"""[PHẦN 2: PHÂN TÍCH TÁC NHÂN GÂY BỆNH]
+(Viết 1 đoạn văn xuôi tự nhiên 2 - 3 câu, TUYỆT ĐỐI KHÔNG dùng gạch đầu dòng: BẮT BUỘC phải đề cập trực tiếp tên khoa học cụ thể {tac_nhan_formatted} thuộc nhóm {loai_tac_nhan} ngay trong câu mở đầu của đoạn văn, sau đó phân tích cụ thể con đường xâm nhập và lây lan của chính tác nhân này trên quả {fruit}.)"""
+    else:
+        phan_2_instruction = f"""[PHẦN 2: PHÂN TÍCH TÁC NHÂN GÂY BỆNH]
+(Viết 1 đoạn văn xuôi tự nhiên 2 - 3 câu, TUYỆT ĐỐI KHÔNG dùng gạch đầu dòng: Trình bày tự nhiên về nhóm tác nhân {loai_tac_nhan.lower()} gây hại thường gặp trên quả {fruit} và phân tích con đường lây lan của mầm bệnh qua nước mưa, gió hoặc độ ẩm cao. TUYỆT ĐỐI KHÔNG nhắc đến cơ sở dữ liệu hay máy móc.)"""
+
+    # Chỉ dẫn Phần 3: Đề xuất xử lý
     if is_healthy:
         phan_3_instruction = f"""[PHẦN 3: ĐỀ XUẤT XỬ LÝ]
 Yêu cầu trình bày chính xác theo dạng gạch đầu dòng in đậm như sau:
@@ -125,15 +146,14 @@ Thông tin chẩn đoán:
 
 CÁC NGUYÊN TẮC BẮT BUỘC:
 1. KHÔNG viết lời chào hỏi. Bắt đầu ngay vào nội dung.
-2. TUYỆT ĐỐI KHÔNG sử dụng các thuật ngữ kỹ thuật máy móc như: "Grad-CAM", "EfficientNet-B0", "mô hình AI", "mạng nơ-ron", "bản đồ nhiệt".
+2. TUYỆT ĐỐI KHÔNG sử dụng các thuật ngữ kỹ thuật máy móc như: "Grad-CAM", "EfficientNet-B0", "mô hình AI", "mạng nơ-ron", "bản đồ nhiệt", "cơ sở dữ liệu".
 3. VIẾT THẬT NGẮN GỌN, SÚC TÍCH, đi thẳng vào trọng tâm.
 4. Trình bày chính xác theo đúng 3 phần được phân tách bằng thẻ đánh dấu bên dưới:
 
 [PHẦN 1: GIẢI THÍCH KẾT QUẢ]
 (Chỉ viết 1 - 2 câu: Vùng khoanh màu đỏ/vàng trên vỏ chỉ ra triệu chứng gì; vì sao nhận định quả đang trong tình trạng {vn_name}.)
 
-[PHẦN 2: PHÂN TÍCH TÁC NHÂN GÂY BỆNH]
-(Chỉ viết 2 - 3 câu súc tích: Đối chiếu cơ sở tri thức để chỉ rõ nhóm vi nấm / vi sinh vật nghi ngờ hàng đầu - ví dụ nhóm Colletotrichum spp. đối với thán thư, Penicillium expansum đối với thối táo...; chỉ ra con đường lây lan chính. Nếu là quả khỏe mạnh thì xác nhận ngắn gọn 1 câu.)
+{phan_2_instruction}
 
 {phan_3_instruction}"""
 
@@ -164,13 +184,37 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
         print(f"[GeminiService] Lỗi kết nối Google GenAI: {general_err}")
 
     if raw_response:
-        explanation, pathogen_analysis, advice = _parse_farmer_response(raw_response, is_healthy=is_healthy, phan_loai_tab3=phan_loai_tab3)
+        explanation, pathogen_analysis, advice = _parse_farmer_response(
+            raw_response,
+            is_healthy=is_healthy,
+            phan_loai_tab3=phan_loai_tab3,
+            has_specific_pathogen=has_specific_pathogen,
+            tac_nhan_list=tac_nhan_list,
+            tac_nhan_formatted=tac_nhan_formatted,
+            loai_tac_nhan=loai_tac_nhan
+        )
         return {"explanation": explanation, "pathogen_analysis": pathogen_analysis, "advice": advice}
 
-    return _get_default_farmer_fallback(vn_name=vn_name, fruit=fruit, is_healthy=is_healthy, phan_loai_tab3=phan_loai_tab3, tac_nhan_str=tac_nhan_str, loai_tac_nhan=loai_tac_nhan)
+    return _get_default_farmer_fallback(
+        vn_name=vn_name,
+        fruit=fruit,
+        is_healthy=is_healthy,
+        phan_loai_tab3=phan_loai_tab3,
+        has_specific_pathogen=has_specific_pathogen,
+        tac_nhan_formatted=tac_nhan_formatted,
+        loai_tac_nhan=loai_tac_nhan
+    )
 
 
-def _parse_farmer_response(text: str, is_healthy: bool, phan_loai_tab3: str = "Nguy hiểm") -> Tuple[str, str, str]:
+def _parse_farmer_response(
+    text: str,
+    is_healthy: bool,
+    phan_loai_tab3: str = "Nguy hiểm",
+    has_specific_pathogen: bool = False,
+    tac_nhan_list: Optional[list] = None,
+    tac_nhan_formatted: str = "",
+    loai_tac_nhan: str = "Vi nấm"
+) -> Tuple[str, str, str]:
     """Tách 3 phần: giải thích kết quả, phân tích tác nhân và đề xuất xử lý từ câu trả lời của Gemini."""
     p1_tag = "[PHẦN 1: GIẢI THÍCH KẾT QUẢ]"
     p2_tag = "[PHẦN 2: PHÂN TÍCH TÁC NHÂN GÂY BỆNH]"
@@ -235,13 +279,29 @@ def _parse_farmer_response(text: str, is_healthy: bool, phan_loai_tab3: str = "N
     if not pathogen_analysis:
         if is_healthy:
             pathogen_analysis = "Bề mặt vỏ quả nguyên vẹn, tế bào biểu bì phát triển tốt, không ghi nhận dấu hiệu xâm nhiễm của các loài nấm bệnh hay vi khuẩn."
+        elif has_specific_pathogen:
+            pathogen_analysis = f"Bệnh do {loai_tac_nhan.lower()} {tac_nhan_formatted} tấn công vào mô vỏ quả. Bào tử mầm bệnh lây lan mạnh qua nước mưa, gió và phát triển nhanh khi gặp điều kiện độ ẩm cao."
         else:
-            pathogen_analysis = "Đối chiếu triệu chứng trên vỏ cho thấy vết bệnh nhiều khả năng do các loài nấm gây hại tiềm sinh phát triển mạnh trong điều kiện nóng ẩm."
+            pathogen_analysis = f"Bệnh do các loài {loai_tac_nhan.lower()} gây hại tấn công vào lớp vỏ quả. Bào tử nấm phát tán mạnh qua nước mưa, gió và lây lan nhanh khi gặp điều kiện nóng ẩm cao."
+    else:
+        # Sanity check: Nếu có tên cụ thể trong CSDL mà câu trả lời chưa nhắc tới tên nào, ghép tự nhiên vào đầu câu
+        if has_specific_pathogen and tac_nhan_list:
+            found_any = any(tn.lower() in pathogen_analysis.lower() for tn in tac_nhan_list)
+            if not found_any:
+                pathogen_analysis = f"Bệnh do {loai_tac_nhan.lower()} {tac_nhan_formatted} gây hại. {pathogen_analysis}"
 
     return explanation, pathogen_analysis, advice
 
 
-def _get_default_farmer_fallback(vn_name: str, fruit: str, is_healthy: bool, phan_loai_tab3: str = "Nguy hiểm", tac_nhan_str: str = "", loai_tac_nhan: str = "") -> Dict[str, str]:
+def _get_default_farmer_fallback(
+    vn_name: str,
+    fruit: str,
+    is_healthy: bool,
+    phan_loai_tab3: str = "Nguy hiểm",
+    has_specific_pathogen: bool = False,
+    tac_nhan_formatted: str = "",
+    loai_tac_nhan: str = "Vi nấm"
+) -> Dict[str, str]:
     """Nội dung mặc định theo văn phong bác sĩ cây trồng khi chưa có API Key hoặc mất mạng."""
     temp_guide = {
         "Táo": "1°C - 3°C, độ ẩm 85% - 90%",
@@ -257,8 +317,11 @@ def _get_default_farmer_fallback(vn_name: str, fruit: str, is_healthy: bool, pha
 - **Điều chỉnh bảo quản**: Bảo quản {fruit} ở điều kiện {temp_guide}, tránh ánh nắng trực tiếp và hạn chế đọng nước để giữ quả tươi ngon lâu nhất."""
     else:
         explanation = f"Vùng khoanh màu đỏ/vàng trên vỏ quả đang chỉ ra các vết thâm đốm hoặc vùng mô tổn thương đặc trưng của **{vn_name}**. Những vết này làm hỏng lớp vỏ ngoài và dễ làm thịt quả bên trong bị thối nhũn."
-        target_pathogen = tac_nhan_str if tac_nhan_str and "Không có" not in tac_nhan_str else "các loài vi nấm gây hại"
-        pathogen_analysis = f"Bệnh do nhóm vi nấm nghi ngờ **{target_pathogen}** tấn công vào lớp vỏ. Bào tử nấm phát tán mạnh qua nước mưa, gió và lây lan nhanh khi gặp điều kiện nóng ẩm cao."
+        if has_specific_pathogen:
+            pathogen_analysis = f"Bệnh do {loai_tac_nhan.lower()} {tac_nhan_formatted} tấn công vào mô vỏ quả. Bào tử mầm bệnh phát tán mạnh qua nước mưa, gió hoặc vết thương cơ học và lây lan nhanh trong điều kiện độ ẩm cao."
+        else:
+            pathogen_analysis = f"Bệnh do các loài {loai_tac_nhan.lower()} gây hại tấn công vào lớp vỏ quả. Bào tử nấm phát tán mạnh qua nước mưa, gió và lây lan nhanh khi gặp điều kiện nóng ẩm cao."
+
         advice = f"""- **Phân loại**: {phan_loai_tab3}
 - **Cách ly tạm thời**: Tách ngay những quả {fruit} có vết bệnh khỏi lô hàng để ngăn bào tử lây nhiễm chéo sang các quả khỏe mạnh.
 - **Kiểm tra bổ sung**: Quan sát kỹ độ lan rộng của vết {vn_name}, kiểm tra độ mềm của thịt quả xung quanh vết thương để đánh giá mức độ thối.

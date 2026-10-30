@@ -229,12 +229,12 @@ CUSTOM_CSS = """
 }
 """
 
-with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái") as demo:
+with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as demo:
     # Header
     gr.HTML("""
     <div class="main-header">
-        <h1>🍎 Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Trái</h1>
-        <p>Hệ thống AI nhận diện và chẩn đoán bệnh trên cây ăn trái (Táo, Ổi, Xoài, Lựu) sử dụng <strong>EfficientNetB0</strong></p>
+        <h1>🍎 Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả</h1>
+        <p>Hệ thống AI nhận diện và chẩn đoán bệnh trên cây ăn quả (Táo, Ổi, Xoài, Lựu) sử dụng <strong>EfficientNetB0</strong></p>
         <div class="badge-bar">
             <span class="badge">🎯 Độ chính xác kiểm thử: 88.61%</span>
             <span class="badge">⚡ Điểm F1-Score: 88.48%</span>

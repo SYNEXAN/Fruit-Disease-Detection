@@ -13,7 +13,7 @@ license: mit
 
 # 🍎 Fruit Disease Detection & Diagnosis
 
-Hệ thống AI nhận diện và chẩn đoán bệnh trên 4 loại cây ăn trái kinh tế: **Táo (Apple)**, **Ổi (Guava)**, **Xoài (Mango)** và **Lựu (Pomegranate)**.
+Hệ thống AI nhận diện và chẩn đoán bệnh trên 4 loại cây ăn quả kinh tế: **Táo (Apple)**, **Ổi (Guava)**, **Xoài (Mango)** và **Lựu (Pomegranate)**.
 
 ## 🌟 Tính Năng Nổi Bật
 - **Mô hình**: **EfficientNetB0** (Fine-tuned với Transfer Learning)

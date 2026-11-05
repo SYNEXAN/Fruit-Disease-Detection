@@ -227,13 +227,13 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
             embed_dim=64,
             pretrained=False
         )
-        checkpoint = torch.load(str(model_path), map_location=DEVICE)
+        checkpoint = torch.load(str(model_path), map_location="cpu", mmap=True)
         state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict, assign=True)
         model.to(DEVICE)
         model.eval()
         _MODEL = model
-        print("[Inference] Model successfully loaded and moved to", DEVICE)
+        print("[Inference] Model successfully loaded via zero-copy mmap and moved to", DEVICE)
         return _MODEL
     except Exception as e:
         print(f"[Inference] Error loading model weights: {e}")

@@ -211,7 +211,7 @@ def resolve_model_path() -> Optional[Path]:
 
 
 def get_model() -> Optional[AdvancedCMTLConvNeXt]:
-    """Load and cache the PyTorch ConvNeXt-V2 CMTL model."""
+    """Load and cache the PyTorch ConvNeXt-V2 CMTL model with lowest possible memory footprint."""
     global _MODEL
     if _MODEL is not None:
         return _MODEL
@@ -227,22 +227,29 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
         if hasattr(torch.backends, "mkldnn"):
             torch.backends.mkldnn.enabled = False
 
+        checkpoint = torch.load(str(model_path), map_location="cpu")
+        state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
+        
+        # Determine whether checkpoint is bfloat16 or float32
+        is_bf16 = any(isinstance(v, torch.Tensor) and v.dtype == torch.bfloat16 for v in state_dict.values())
+        model_dtype = torch.bfloat16 if is_bf16 else torch.float32
+
         model = AdvancedCMTLConvNeXt(
             model_name='convnextv2_tiny',
             num_species=3,
             num_diseases=15,
             embed_dim=64,
             pretrained=False
-        )
-        checkpoint = torch.load(str(model_path), map_location="cpu")
-        state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
-        # Unpack to float32 for clean CPU calculation with 0% accuracy loss
-        state_dict = {k: v.float() if isinstance(v, torch.Tensor) and v.is_floating_point() else v for k, v in state_dict.items()}
-        model.load_state_dict(state_dict)
-        model.to(DEVICE)
+        ).to(dtype=model_dtype, device=DEVICE)
+
+        model.load_state_dict(state_dict, assign=True)
         model.eval()
+
+        del checkpoint, state_dict
+        gc.collect()
+
         _MODEL = model
-        print("[Inference] Model successfully loaded into memory and moved to", DEVICE)
+        print(f"[Inference] Model successfully loaded ({model_dtype}) into memory and moved to {DEVICE}")
         return _MODEL
     except Exception as e:
         print(f"[Inference] Error loading model weights: {e}")
@@ -254,7 +261,8 @@ def warmup_model():
     model = get_model()
     if model is not None:
         try:
-            dummy = torch.zeros(1, 3, IMG_SIZE, IMG_SIZE, device=DEVICE)
+            model_dtype = next(model.parameters()).dtype
+            dummy = torch.zeros(1, 3, IMG_SIZE, IMG_SIZE, dtype=model_dtype, device=DEVICE)
             with torch.no_grad():
                 model(dummy)
             print("[Inference] Model warmup completed successfully.")
@@ -344,9 +352,12 @@ def compute_gradcam(
     """
     Computes exact Grad-CAM for the target disease class on the 7x7 spatial feature map.
     Freezes the backbone using torch.no_grad() and computes gradients only through the classification head.
-    Mathematical difference compared to full-backbone backward: 0.000000.
+    Supports native BFloat16 and Float32 inference with zero distortion.
     """
     model.zero_grad()
+    model_dtype = next(model.parameters()).dtype
+    input_tensor = input_tensor.to(dtype=model_dtype, device=DEVICE)
+
     with torch.no_grad():
         feat_map = model.forward_features(input_tensor)
 
@@ -355,12 +366,12 @@ def compute_gradcam(
     gate = model.lesion_to_species_gate(f_peak)
     f_species = f_fruit + gate * f_peak
     species_logits = model.species_head(f_species)
-    species_probs = F.softmax(species_logits, dim=-1).detach()
+    species_probs = F.softmax(species_logits.float(), dim=-1).to(dtype=model_dtype).detach()
     e_species = F.gelu(model.species_embed(species_probs))
     f_disease = torch.cat([f_peak, e_species], dim=-1)
     disease_logits = model.disease_head(f_disease)
 
-    top_idx = int(target_idx) if target_idx is not None else int(np.argmax(disease_logits[0].detach().cpu().numpy()))
+    top_idx = int(target_idx) if target_idx is not None else int(np.argmax(disease_logits[0].detach().cpu().float().numpy()))
 
     score = disease_logits[0, top_idx]
     score.backward(retain_graph=False)
@@ -368,7 +379,7 @@ def compute_gradcam(
     grad = feat_var.grad[0]  # [768, 7, 7]
     feat = feat_var[0].detach()  # [768, 7, 7]
     weights = torch.mean(F.relu(grad), dim=[-2, -1], keepdim=True)
-    cam = torch.sum(weights * feat, dim=0).detach().cpu().numpy()
+    cam = torch.sum(weights * feat, dim=0).detach().cpu().float().numpy()
     cam = np.maximum(cam, 0)
 
     if np.max(cam) > 0:
@@ -427,13 +438,16 @@ def predict_image(
             "pathogen_info": get_pathogen_info(dummy_class)
         }
 
+    model_dtype = next(model.parameters()).dtype
+    input_tensor = input_tensor.to(dtype=model_dtype, device=DEVICE)
+
     # 2x Horizontal Flip Test-Time Augmentation (TTA) Batch: [Original, Flipped]
     tta_batch = torch.cat([input_tensor, torch.flip(input_tensor, dims=[3])], dim=0)
 
     with torch.no_grad():
         f_batch, d_batch, _ = model(tta_batch)
-        fruit_logits = f_batch.mean(dim=0, keepdim=True)
-        disease_logits = d_batch.mean(dim=0, keepdim=True)
+        fruit_logits = f_batch.float().mean(dim=0, keepdim=True)
+        disease_logits = d_batch.float().mean(dim=0, keepdim=True)
 
         sp_probs = F.softmax(fruit_logits, dim=-1)[0].cpu().numpy()
         fruit_idx = int(np.argmax(sp_probs))

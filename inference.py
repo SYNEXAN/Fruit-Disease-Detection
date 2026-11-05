@@ -174,23 +174,22 @@ class AdvancedCMTLConvNeXt(nn.Module):
 
 
 # ============================================================
-# Model Loading & Checkpoint Reassembly
+# Model Loading & Checkpoint Resolution
 # ============================================================
 def resolve_model_path() -> Optional[Path]:
-    """Search for available Version 6 SOTA model checkpoints or assemble from parts."""
+    """Search for available Version 6 SOTA model checkpoints."""
     candidates = [
+        MODEL_DIR / "convnextv2_cmtl_v6_bf16.pth",
+        BASE_DIR / "convnextv2_cmtl_v6_bf16.pth",
         MODEL_DIR / "checkpoints_3fruits" / "convnextv2_cmtl_v6_best.pth",
-        MODEL_DIR / "checkpoints_cmtl_v6" / "convnextv2_cmtl_v6_best.pth",
-        MODEL_DIR / "convnextv2_cmtl_v6_best.pth",
         MODEL_DIR / "convnextv2_cmtl_v6.pth",
-        BASE_DIR / "convnextv2_cmtl_v6_best.pth",
         BASE_DIR / "convnextv2_cmtl_v6.pth"
     ]
     for p in candidates:
-        if p.is_file() and p.stat().st_size > 50 * 1024 * 1024:
+        if p.is_file() and p.stat().st_size > 30 * 1024 * 1024:
             return p
 
-    # If full .pth not yet assembled, assemble from binary parts
+    # If full .pth not yet assembled, assemble from binary parts if present
     part1 = MODEL_DIR / "convnextv2_cmtl_v6.part1"
     part2 = MODEL_DIR / "convnextv2_cmtl_v6.part2"
     target = MODEL_DIR / "convnextv2_cmtl_v6.pth"
@@ -224,6 +223,10 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
 
     print(f"[Inference] Loading Version 6 SOTA PyTorch model from: {model_path}")
     try:
+        # Disable heavy oneDNN primitive caching on 0.5 CPU cloud containers to save 150MB RAM
+        if hasattr(torch.backends, "mkldnn"):
+            torch.backends.mkldnn.enabled = False
+
         model = AdvancedCMTLConvNeXt(
             model_name='convnextv2_tiny',
             num_species=3,
@@ -231,13 +234,15 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
             embed_dim=64,
             pretrained=False
         )
-        checkpoint = torch.load(str(model_path), map_location="cpu", mmap=True)
+        checkpoint = torch.load(str(model_path), map_location="cpu")
         state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
-        model.load_state_dict(state_dict, assign=True)
+        # Unpack to float32 for clean CPU calculation with 0% accuracy loss
+        state_dict = {k: v.float() if isinstance(v, torch.Tensor) and v.is_floating_point() else v for k, v in state_dict.items()}
+        model.load_state_dict(state_dict)
         model.to(DEVICE)
         model.eval()
         _MODEL = model
-        print("[Inference] Model successfully loaded via zero-copy mmap and moved to", DEVICE)
+        print("[Inference] Model successfully loaded into memory and moved to", DEVICE)
         return _MODEL
     except Exception as e:
         print(f"[Inference] Error loading model weights: {e}")

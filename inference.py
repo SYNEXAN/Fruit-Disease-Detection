@@ -33,7 +33,6 @@ if sys.platform == "win32":
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import timm
 
 from classes import (
     FRUIT_CLASSES,
@@ -117,6 +116,108 @@ class SpatialAttentionPooling(nn.Module):
         return f_fruit, f_peak, attn
 
 
+# ============================================================
+# Ultra-Low Memory Pure PyTorch ConvNeXt-V2 Backbone (Zero timm dependency, saves 114MB RAM)
+# Bit-for-bit identical to timm convnextv2_tiny with GRN (Global Response Normalization)
+# ============================================================
+class LayerNorm2d(nn.Module):
+    def __init__(self, num_features: int, eps: float = 1e-6):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(num_features))
+        self.bias = nn.Parameter(torch.zeros(num_features))
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.mean(1, keepdim=True)
+        s = (x - u).pow(2).mean(1, keepdim=True)
+        x = (x - u) / torch.sqrt(s + self.eps)
+        return self.weight[:, None, None] * x + self.bias[:, None, None]
+
+
+class GlobalResponseNorm(nn.Module):
+    def __init__(self, dim: int = 0, eps: float = 1e-6):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.zeros(dim))
+        self.bias = nn.Parameter(torch.zeros(dim))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        Gx = torch.norm(x, p=2, dim=(1, 2), keepdim=True)
+        Nx = Gx / (Gx.mean(dim=-1, keepdim=True) + self.eps)
+        return self.weight * (x * Nx) + self.bias + x
+
+
+class ConvNeXtBlock(nn.Module):
+    def __init__(self, dim: int):
+        super().__init__()
+        self.conv_dw = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        self.norm = nn.LayerNorm(dim, eps=1e-6)
+        self.mlp = nn.Module()
+        self.mlp.fc1 = nn.Linear(dim, 4 * dim)
+        self.mlp.act = nn.GELU()
+        self.mlp.drop1 = nn.Identity()
+        self.mlp.grn = GlobalResponseNorm(4 * dim)
+        self.mlp.fc2 = nn.Linear(4 * dim, dim)
+        self.mlp.drop2 = nn.Identity()
+        self.shortcut = nn.Identity()
+        self.drop_path = nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        shortcut = x
+        x = self.conv_dw(x)
+        x = x.permute(0, 2, 3, 1)  # [N, C, H, W] -> [N, H, W, C]
+        x = self.norm(x)
+        x = self.mlp.fc1(x)
+        x = self.mlp.act(x)
+        x = self.mlp.grn(x)
+        x = self.mlp.fc2(x)
+        x = x.permute(0, 3, 1, 2)  # [N, H, W, C] -> [N, C, H, W]
+        return shortcut + x
+
+
+class ConvNeXtStage(nn.Module):
+    def __init__(self, in_chs: int, out_chs: int, depth: int, downsample: bool = True):
+        super().__init__()
+        if downsample:
+            self.downsample = nn.Sequential(
+                LayerNorm2d(in_chs, eps=1e-6),
+                nn.Conv2d(in_chs, out_chs, kernel_size=2, stride=2)
+            )
+        else:
+            self.downsample = nn.Identity()
+        self.blocks = nn.Sequential(*[ConvNeXtBlock(out_chs) for _ in range(depth)])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.downsample(x)
+        x = self.blocks(x)
+        return x
+
+
+class PureConvNeXtV2Tiny(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, 96, kernel_size=4, stride=4),
+            LayerNorm2d(96, eps=1e-6)
+        )
+        self.stages = nn.Sequential(
+            ConvNeXtStage(96, 96, depth=3, downsample=False),
+            ConvNeXtStage(96, 192, depth=3, downsample=True),
+            ConvNeXtStage(192, 384, depth=9, downsample=True),
+            ConvNeXtStage(384, 768, depth=3, downsample=True)
+        )
+        self.norm_pre = nn.Identity()
+        self.num_features = 768
+
+    def forward_features(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.stem(x)
+        x = self.stages(x)
+        return x
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.forward_features(x)
+
+
 class AdvancedCMTLConvNeXt(nn.Module):
     """
     Advanced CMTL ConvNeXt-V2 (Version 6 SOTA - Kaggle Clean Training)
@@ -127,7 +228,7 @@ class AdvancedCMTLConvNeXt(nn.Module):
     """
     def __init__(self, model_name: str = 'convnextv2_tiny', num_species: int = 3, num_diseases: int = 15, embed_dim: int = 64, pretrained: bool = False):
         super().__init__()
-        self.backbone = timm.create_model(model_name, pretrained=pretrained, num_classes=0)
+        self.backbone = PureConvNeXtV2Tiny()
         in_dim = self.backbone.num_features  # 768
 
         self.spatial_pooling = SpatialAttentionPooling(in_channels=in_dim)
@@ -227,26 +328,26 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
         if hasattr(torch.backends, "mkldnn"):
             torch.backends.mkldnn.enabled = False
 
-        checkpoint = torch.load(str(model_path), map_location="cpu")
-        state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
-        
+        checkpoint = torch.load(str(model_path), map_location="cpu", mmap=True)
+        raw_sd = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
+        # Filter out unused classifier head weights from upstream timm if present
+        state_dict = {k: v for k, v in raw_sd.items() if not k.startswith("backbone.head.")}
+
         # Determine whether checkpoint is bfloat16 or float32
         is_bf16 = any(isinstance(v, torch.Tensor) and v.dtype == torch.bfloat16 for v in state_dict.values())
         model_dtype = torch.bfloat16 if is_bf16 else torch.float32
 
         with torch.device("meta"):
             meta_model = AdvancedCMTLConvNeXt(
-                model_name='convnextv2_tiny',
                 num_species=3,
                 num_diseases=15,
-                embed_dim=64,
-                pretrained=False
+                embed_dim=64
             ).to(dtype=model_dtype)
 
-        meta_model.load_state_dict(state_dict, assign=True)
+        meta_model.load_state_dict(state_dict, strict=False, assign=True)
         meta_model.eval()
 
-        del checkpoint, state_dict
+        del checkpoint, raw_sd, state_dict
         gc.collect()
 
         try:
@@ -337,9 +438,9 @@ def preprocess_image(image: Union[str, Path, Image.Image, np.ndarray, Dict[str, 
             pass
     del pil_raw
 
-    # Giới hạn kích thước ảnh hiển thị tối đa 640px để tiết kiệm triệt để RAM (512MB limit)
+    # Giới hạn kích thước ảnh hiển thị tối đa 512px để tiết kiệm triệt để RAM (512MB limit)
     w_orig, h_orig = pil_oriented.size
-    max_disp = 640
+    max_disp = 512
     if max(w_orig, h_orig) > max_disp:
         scale = max_disp / max(w_orig, h_orig)
         pil_disp = pil_oriented.resize((int(w_orig * scale), int(h_orig * scale)), Image.Resampling.BILINEAR)

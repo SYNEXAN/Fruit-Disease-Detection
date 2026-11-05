@@ -30,11 +30,10 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # Cặp mô hình: Chính là 3.5-flash-lite siêu nhanh theo khuyến nghị chính thức của Google API
 PRIMARY_MODEL = "gemini-3.5-flash-lite"
-FALLBACK_MODEL = "gemini-flash-lite-latest"
+FALLBACK_MODEL = "gemini-3.5-flash"
 PREFERRED_GEMINI_MODELS = [
     "gemini-3.5-flash-lite",
-    "gemini-flash-lite-latest",
-    "gemini-flash-latest"
+    "gemini-3.5-flash"
 ]
 
 _CACHED_CLIENT = None
@@ -111,8 +110,8 @@ def explain_diagnosis_with_gemini(
                 pil_img = Image.fromarray(gradcam_image.astype(np.uint8))
 
             if pil_img is not None:
-                # Thu nhỏ ảnh tối đa 384x384 để tiết kiệm băng thông và giảm 60% thời gian xử lý của Gemini API
-                pil_img.thumbnail((384, 384), Image.Resampling.LANCZOS)
+                # Thu nhỏ ảnh 256x256 để tiết kiệm RAM tối đa cho container 512MB
+                pil_img.thumbnail((256, 256), Image.Resampling.BILINEAR)
         except Exception as e:
             print(f"[GeminiService] Cảnh báo chuyển đổi/nén ảnh: {e}")
 

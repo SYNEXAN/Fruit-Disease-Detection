@@ -82,6 +82,17 @@ if not SAMPLE_IMAGES and TEST_IMAGES_DIR.is_dir():
 # ============================================================
 # Core Prediction Callback Function
 # ============================================================
+def get_process_rss_mb() -> float:
+    try:
+        with open("/proc/self/status") as f:
+            for l in f:
+                if l.startswith("VmRSS:"):
+                    return float(l.split()[1]) / 1024.0
+    except Exception:
+        pass
+    return 0.0
+
+
 def cleanup_temp_memory():
     """Giải phóng triệt để RAM và dọn sạch bộ nhớ đệm /tmp/gradio trên Render Free Tier."""
     try:
@@ -123,6 +134,10 @@ def run_diagnosis(input_img, conf_threshold=0.75):
         input_img = input_img.get("path") or input_img.get("url")
         if not input_img:
             return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây hợp lệ.**"
+
+    rss_in = get_process_rss_mb()
+    if rss_in > 0:
+        print(f"[App] Diagnosis start - Current RSS: {rss_in:.1f} MB", flush=True)
 
     from inference import predict_image
     result = predict_image(input_img, conf_threshold=conf_threshold, generate_cam=True)
@@ -187,6 +202,9 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 {advice_text}
 """
         cleanup_temp_memory()
+        rss_out = get_process_rss_mb()
+        if rss_out > 0:
+            print(f"[App] Diagnosis finish - RSS: {rss_out:.1f} MB", flush=True)
         return gradcam_img, final_diagnosis_md.strip()
 
     except Exception as e:

@@ -323,9 +323,18 @@ def preprocess_image(image: Union[str, Path, Image.Image, np.ndarray, Dict[str, 
 
     # Tự động xoay chiều đúng theo thẻ EXIF Orientation
     pil_oriented = ImageOps.exif_transpose(pil_raw).convert("RGB")
-    orig_full_rgb = np.array(pil_oriented)
 
-    # Thu nhỏ chống răng cưa (Anti-aliased Bilinear Resampling) trực tiếp 224x224
+    # Giới hạn kích thước ảnh hiển thị tối đa 800px để tránh tràn RAM (512MB limit) khi xử lý ảnh gốc 3000px+
+    w_orig, h_orig = pil_oriented.size
+    max_disp = 800
+    if max(w_orig, h_orig) > max_disp:
+        scale = max_disp / max(w_orig, h_orig)
+        pil_disp = pil_oriented.resize((int(w_orig * scale), int(h_orig * scale)), Image.Resampling.BILINEAR)
+    else:
+        pil_disp = pil_oriented
+    orig_full_rgb = np.array(pil_disp)
+
+    # Thu nhỏ chống răng cưa (Anti-aliased Bilinear Resampling) trực tiếp 224x224 cho mô hình
     resized_pil = pil_oriented.resize((IMG_SIZE, IMG_SIZE), Image.Resampling.BILINEAR)
     resized_np = np.array(resized_pil)
 

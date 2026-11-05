@@ -28,10 +28,10 @@ if _ENV_PATH.is_file():
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Cặp mô hình: Chính là 3.5-flash-lite, Fallback là 3.1-flash-lite (Hạn ngạch request cao nhất)
-PRIMARY_MODEL = "gemini-3.5-flash-lite"
-FALLBACK_MODEL = "gemini-3.1-flash-lite"
-PREFERRED_GEMINI_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL]
+# Cặp mô hình: Chính là 2.5-flash, Fallback là 2.0-flash / 1.5-flash
+PRIMARY_MODEL = "gemini-2.5-flash"
+FALLBACK_MODEL = "gemini-2.0-flash"
+PREFERRED_GEMINI_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL, "gemini-1.5-flash"]
 
 
 def explain_diagnosis_with_gemini(

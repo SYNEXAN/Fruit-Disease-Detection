@@ -89,14 +89,28 @@ def warmup_model():
             print(f"[Inference] Warmup notice: {e}")
 
 
-def preprocess_image(image: Union[str, Path, Image.Image, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+def preprocess_image(image: Union[str, Path, Image.Image, np.ndarray, Dict[str, Any]]) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load, correct EXIF orientation, and preprocess image into ImageNet float32 array.
     Returns:
         (preprocessed_array [1, 3, 224, 224], orig_rgb_numpy_array)
     """
+    if isinstance(image, dict):
+        image = image.get("path") or image.get("url") or image.get("name")
+        if not image:
+            raise ValueError("Dictionary does not contain valid image path")
+
     if isinstance(image, (str, Path)):
-        pil_raw = Image.open(str(image))
+        p = Path(image)
+        if not p.is_file():
+            # Try finding in test-images or base dir if relative
+            if (BASE_DIR / image).is_file():
+                p = BASE_DIR / image
+            elif (BASE_DIR / "test-images" / p.name).is_file():
+                p = BASE_DIR / "test-images" / p.name
+            else:
+                raise FileNotFoundError(f"Image file not found: {image}")
+        pil_raw = Image.open(str(p))
     elif isinstance(image, np.ndarray):
         pil_raw = Image.fromarray(image.astype(np.uint8))
     elif isinstance(image, Image.Image):

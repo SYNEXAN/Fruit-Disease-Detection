@@ -92,6 +92,12 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     if input_img is None:
         return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây lên để phân tích.**"
 
+    # Unpack dict if Gradio passes file metadata dict
+    if isinstance(input_img, dict):
+        input_img = input_img.get("path") or input_img.get("url")
+        if not input_img:
+            return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây hợp lệ.**"
+
     from inference import predict_image
     result = predict_image(input_img, conf_threshold=conf_threshold, generate_cam=True)
 
@@ -282,7 +288,7 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
         with gr.TabItem("🖼️ Tải Ảnh Lên Phân Tích", id="tab_image"):
             with gr.Row():
                 with gr.Column(scale=1) as left_col:
-                    img_input = gr.Image(type="pil", label="Tải ảnh quả", height=380)
+                    img_input = gr.Image(type="filepath", label="Tải ảnh quả", height=380)
                     btn_predict = gr.Button("🔍 Phân Tích & Chẩn Đoán", variant="primary", size="lg")
 
                 with gr.Column(scale=1):
@@ -292,13 +298,11 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
             # Đặt Thư viện ảnh mẫu ngay bên dưới nút bấm ở Cột bên trái
             if SAMPLE_IMAGES:
                 with left_col:
-                    gr.Markdown("### 📂 Thư Viện Ảnh Mẫu (Click để thử nhanh):")
+                    gr.Markdown("### 📂 Thư Viện Ảnh Mẫu (Click ảnh mẫu rồi bấm Phân Tích):")
                     gr.Examples(
                         examples=SAMPLE_IMAGES,
                         inputs=img_input,
-                        outputs=[img_output, diagnosis_output],
-                        fn=run_diagnosis,
-                        cache_examples=False
+                        label="Chọn ảnh mẫu thử nhanh"
                     )
 
             btn_predict.click(
@@ -311,7 +315,7 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
         with gr.TabItem("📹 Quét Trực Tiếp Qua Camera", id="tab_cam"):
             with gr.Row():
                 with gr.Column(scale=1):
-                    cam_input = gr.Image(sources=["webcam"], type="pil", label="Bật Camera chụp trực tiếp quả/lá", height=380)
+                    cam_input = gr.Image(sources=["webcam"], type="filepath", label="Bật Camera chụp trực tiếp quả/lá", height=380)
                     btn_cam_predict = gr.Button("📸 Chụp & Nhận Diện Ngay", variant="primary", size="lg")
                 with gr.Column(scale=1):
                     cam_img_out = gr.Image(type="numpy", label="Ảnh phân tích", height=380)

@@ -1,174 +1,169 @@
 """
-Fruit Disease Classification - Complete 17-Class Knowledge Base & Pathogen Database
-Integrated with TacNhan.json and EfficientNetB0_model_labels.txt
-Classes across: Apple (Táo), Guava (Ổi), Mango (Xoài), Pomegranate (Lựu)
+Fruit Disease Classification - Complete 15-Class Knowledge Base & Pathogen Database
+Covers 3 Fruit Types: Mango (Xoài), Orange (Cam), Pomegranate (Lựu)
+Synchronized with ConvNeXt-V2 Advanced CMTL (Version 6 SOTA) and TacNhan.json
 """
 
 import json
 from pathlib import Path
+from typing import Dict, Any, List
 
 BASE_DIR = Path(__file__).resolve().parent
 TAC_NHAN_PATH = BASE_DIR / "TacNhan.json"
 
-FRUIT_CLASSES = [
-    "APPLE_Blotch_Apple",
-    "APPLE_Healthy_Apple",
-    "APPLE_Rot_Apple",
-    "APPLE_Scab_Apple",
-    "GUAVA_Anthracnose_Guava",
-    "GUAVA_Fruitfly_Guava",
-    "GUAVA_Healthy_Guava",
-    "MANGO_Alternaria_Mango",
-    "MANGO_Anthracnose_Mango",
-    "MANGO_Black Mould Rot (Aspergillus)_Mango",
-    "MANGO_Healthy_Mango",
-    "MANGO_Stem and Rot (Lasiodiplodia)_Mango",
-    "POMEGRANATE_Alternaria_Pomegranate",
-    "POMEGRANATE_Anthracnose_Pomegranate",
-    "POMEGRANATE_Bacterial_Blight_Pomegranate",
-    "POMEGRANATE_Cercospora_Pomegranate",
-    "POMEGRANATE_Healthy_Pomegranate"
+FRUIT_CLASSES: List[str] = [
+    "mango_Anthracnose",
+    "mango_Bacterial_Canker",
+    "mango_Healthy",
+    "mango_Powdery_Mildew",
+    "mango_Scab",
+    "mango_Sooty_Mould",
+    "mango_Stem_End_Rot",
+    "orange_Citrus_Canker",
+    "orange_Citrus_Melanose",
+    "orange_Healthy",
+    "pomegranate_Alternaria",
+    "pomegranate_Anthracnose",
+    "pomegranate_Bacterial_Blight",
+    "pomegranate_Cercospora",
+    "pomegranate_Healthy"
 ]
 
-FRUIT_VN_MAP = {
-    "APPLE_Blotch_Apple": "🍎 Táo - Bệnh đốm lá đốm quả Marssonina",
-    "APPLE_Healthy_Apple": "🍎 Táo - Cây quả khỏe mạnh",
-    "APPLE_Rot_Apple": "🍎 Táo - Bệnh thối quả (Thối đen / Thối đắng)",
-    "APPLE_Scab_Apple": "🍎 Táo - Bệnh vảy nấm",
-    "GUAVA_Anthracnose_Guava": "🍈 Ổi - Bệnh thán thư",
-    "GUAVA_Fruitfly_Guava": "🍈 Ổi - Bị ruồi đục quả gây hại",
-    "GUAVA_Healthy_Guava": "🍈 Ổi - Cây quả khỏe mạnh",
-    "MANGO_Alternaria_Mango": "🥭 Xoài - Bệnh đốm nấm lá & quả Alternaria",
-    "MANGO_Anthracnose_Mango": "🥭 Xoài - Bệnh thán thư",
-    "MANGO_Black Mould Rot (Aspergillus)_Mango": "🥭 Xoài - Bệnh thối mốc đen Aspergillus",
-    "MANGO_Healthy_Mango": "🥭 Xoài - Cây quả khỏe mạnh",
-    "MANGO_Stem and Rot (Lasiodiplodia)_Mango": "🥭 Xoài - Bệnh thối đầu cuống quả Lasiodiplodia",
-    "POMEGRANATE_Alternaria_Pomegranate": "🫐 Lựu - Bệnh đốm thối đen Alternaria",
-    "POMEGRANATE_Anthracnose_Pomegranate": "🫐 Lựu - Bệnh thán thư",
-    "POMEGRANATE_Bacterial_Blight_Pomegranate": "🫐 Lựu - Bệnh cháy vi khuẩn",
-    "POMEGRANATE_Cercospora_Pomegranate": "🫐 Lựu - Bệnh đốm mắt chim Cercospora",
-    "POMEGRANATE_Healthy_Pomegranate": "🫐 Lựu - Cây quả khỏe mạnh"
+FRUIT_GROUPS: Dict[str, List[int]] = {
+    "mango": [0, 1, 2, 3, 4, 5, 6],
+    "orange": [7, 8, 9],
+    "pomegranate": [10, 11, 12, 13, 14]
 }
 
-DISEASE_INFO = {
-    "APPLE_Blotch_Apple": {
-        "status": "warning",
-        "fruit": "Táo",
-        "severity": "Trung bình",
-        "description": "Vết bệnh màu nâu sẫm hoặc xám đen, viền răng cưa không đều trên vỏ táo và mặt lá, làm giảm phẩm cấp quả.",
-        "treatment": "Cắt tỉa cành thông thoáng, thu dọn tàn dư lá rụng. Phun luân phiên thuốc gốc đồng hoặc Captan, Mancozeb."
-    },
-    "APPLE_Healthy_Apple": {
-        "status": "healthy",
-        "fruit": "Táo",
-        "severity": "Không có",
-        "description": "Quả táo phát triển tốt, bề mặt căng bóng đều màu, không có dấu hiệu nấm bệnh hay côn trùng gây hại.",
-        "treatment": "Tiếp tục quy trình tưới tiêu và bổ sung phân bón trung vi lượng cân đối."
-    },
-    "APPLE_Rot_Apple": {
+FRUIT_NAMES_VN: Dict[str, str] = {
+    "mango": "Xoài 🥭",
+    "orange": "Cam 🍊",
+    "pomegranate": "Lựu 🫐"
+}
+
+FRUIT_VN_MAP: Dict[str, str] = {
+    "mango_Anthracnose": "🥭 Xoài - Bệnh thán thư (Anthracnose)",
+    "mango_Bacterial_Canker": "🥭 Xoài - Bệnh loét vi khuẩn (Bacterial Canker)",
+    "mango_Healthy": "🥭 Xoài - Quả khỏe mạnh",
+    "mango_Powdery_Mildew": "🥭 Xoài - Bệnh phấn trắng (Powdery Mildew)",
+    "mango_Scab": "🥭 Xoài - Bệnh vảy nấm ghẻ (Mango Scab)",
+    "mango_Sooty_Mould": "🥭 Xoài - Bệnh bồ hóng muội đen (Sooty Mould)",
+    "mango_Stem_End_Rot": "🥭 Xoài - Bệnh thối đầu cuống quả (Stem-End Rot)",
+    "orange_Citrus_Canker": "🍊 Cam - Bệnh loét vi khuẩn (Citrus Canker)",
+    "orange_Citrus_Melanose": "🍊 Cam - Bệnh đốm sẹo gôm đen Melanose",
+    "orange_Healthy": "🍊 Cam - Quả khỏe mạnh",
+    "pomegranate_Alternaria": "🫐 Lựu - Bệnh đốm thối đen Alternaria",
+    "pomegranate_Anthracnose": "🫐 Lựu - Bệnh thán thư quả lựu",
+    "pomegranate_Bacterial_Blight": "🫐 Lựu - Bệnh cháy vi khuẩn (Bacterial Blight)",
+    "pomegranate_Cercospora": "🫐 Lựu - Bệnh đốm mắt chim Cercospora",
+    "pomegranate_Healthy": "🫐 Lựu - Quả khỏe mạnh"
+}
+
+DISEASE_INFO: Dict[str, Dict[str, Any]] = {
+    "mango_Anthracnose": {
         "status": "danger",
-        "fruit": "Táo",
+        "fruit": "Xoài",
         "severity": "Cao",
-        "description": "Vùng thối mềm màu nâu đen lan tròn nhanh chóng, phần thịt quả bên trong bị phân hủy nhũn chua.",
-        "treatment": "Thu gom tiêu hủy ngay các quả thối để tránh lây nhiễm. Phun phòng ngừa Thiophanate-methyl hoặc Fludioxonil sau đợt mưa kéo dài."
+        "description": "Vết đốm đen tròn hoặc bất định, hơi lõm trên vỏ quả xoài non và chín. Trong điều kiện ẩm ướt, bề mặt vết bệnh xuất hiện các khối bào tử màu hồng cam.",
+        "treatment": "Bao trái sớm khi quả đạt kích thước ngón chân cái. Thu gom tiêu hủy quả rụng. Phun luân phiên thuốc gốc Mancozeb, Difenoconazole hoặc Azoxystrobin."
     },
-    "APPLE_Scab_Apple": {
-        "status": "warning",
-        "fruit": "Táo",
-        "severity": "Trung bình",
-        "description": "Các vết đốm màu xanh ô liu dần chuyển sang màu đen như lớp vảy mốc, làm quả bị nứt nẻ và dị dạng.",
-        "treatment": "Thu gom lá khô cuối vụ. Phun Myclobutanil hoặc Difenoconazole vào giai đoạn nụ hoa và quả non."
-    },
-    "GUAVA_Anthracnose_Guava": {
-        "status": "warning",
-        "fruit": "Ổi",
-        "severity": "Trung bình",
-        "description": "Đốm bệnh tròn lõm màu nâu xám trên vỏ ổi, có hạt bào tử hồng nhạt khi độ ẩm không khí cao.",
-        "treatment": "Bao trái sớm. Phun thuốc trừ nấm gốc Azoxystrobin, Difenoconazole hoặc Copper Hydroxide."
-    },
-    "GUAVA_Fruitfly_Guava": {
+    "mango_Bacterial_Canker": {
         "status": "danger",
-        "fruit": "Ổi",
+        "fruit": "Xoài",
+        "severity": "Cao",
+        "description": "Các vết nứt hình sao hoặc vết đốm đen dạng mắt lưới góc cạnh, có dịch vi khuẩn nhờn ứa ra trên vỏ quả, sau đó khô lại thành vảy cứng.",
+        "treatment": "Cắt tỉa tạo tán thông thoáng, tránh để cọ xát gây vết thương cơ giới. Phun phòng trừ bằng thuốc gốc đồng (Copper Hydroxide, Copper Oxychloride) hoặc Kasugamycin."
+    },
+    "mango_Healthy": {
+        "status": "healthy",
+        "fruit": "Xoài",
+        "severity": "Không có",
+        "description": "Quả xoài phát triển bình thường, vỏ căng bóng, đồng đều màu sắc, không có vết thâm nhiễm nấm khuẩn hay vết chích hút côn trùng.",
+        "treatment": "Duy trì chế độ dinh dưỡng NPK cân đối, bổ sung canxi-bo để vỏ quả chắc khỏe, chống nứt."
+    },
+    "mango_Powdery_Mildew": {
+        "status": "warning",
+        "fruit": "Xoài",
+        "severity": "Trung bình",
+        "description": "Lớp bột trắng như phấn mịn bao phủ bề mặt vỏ quả non, làm quả bị chai sần, méo mó và rụng hàng loạt.",
+        "treatment": "Phun phòng ngừa từ giai đoạn ra hoa đến khi đậu quả non bằng lưu huỳnh vi sinh (Sulfur), Hexaconazole hoặc Dinocap."
+    },
+    "mango_Scab": {
+        "status": "warning",
+        "fruit": "Xoài",
+        "severity": "Trung bình",
+        "description": "Vết bệnh ban đầu là chấm xám nhỏ, sau phát triển thành mảng sẹo vảy sần sùi màu nâu xám lồi lên như da cóc, làm quả mất giá trị thương phẩm.",
+        "treatment": "Cắt bỏ cành sâu bệnh sau thu hoạch. Phun thuốc gốc đồng hoặc Carbendazim giai đoạn quả non."
+    },
+    "mango_Sooty_Mould": {
+        "status": "warning",
+        "fruit": "Xoài",
+        "severity": "Trung bình",
+        "description": "Màng muội đen bám dày như lớp nhung than trên bề mặt quả, cản trở quang hợp và hô hấp. Lớp muội có thể cạo tróc ra.",
+        "treatment": "Diệt trừ triệt để các loài côn trùng tiết mật ngọt như rệp sáp, rầy chổng cánh bằng dầu khoáng hoặc thuốc trừ rầy. Phun nước áp lực mạnh rửa trôi muội than."
+    },
+    "mango_Stem_End_Rot": {
+        "status": "danger",
+        "fruit": "Xoài",
         "severity": "Rất cao",
-        "description": "Vết châm nhỏ của ruồi đục quả, bên trong có ấu trùng (dòi) ăn rỗng thịt quả làm quả nhanh thối và rụng non.",
-        "treatment": "Bao trái bằng túi chuyên dụng khi quả cỡ ngón tay cái. Dùng bẫy dẫn dụ Methyl Eugenol diệt ruồi trưởng thành."
+        "description": "Vùng thối màu nâu sẫm hoặc tím đen loang nhanh từ cuống quả lan dần xuống thân quả, phần thịt bên trong bị thối rữa và bốc mùi chua.",
+        "treatment": "Thu hái chừa cuống 5-10cm, tránh bẻ sát cuống làm chảy mủ. Xử lý nước nóng 52°C trong 5 phút sau thu hoạch, bảo quản nơi thoáng mát."
     },
-    "GUAVA_Healthy_Guava": {
-        "status": "healthy",
-        "fruit": "Ổi",
-        "severity": "Không có",
-        "description": "Quả ổi căng bóng, màu xanh sáng tự nhiên, cấu trúc thịt quả giòn và lành lặn.",
-        "treatment": "Bao bọc bảo vệ quả chống côn trùng và bón phân hữu cơ định kỳ."
+    "orange_Citrus_Canker": {
+        "status": "danger",
+        "fruit": "Cam",
+        "severity": "Cao",
+        "description": "Các vết sẹo nổi gồ ghề dạng nốt sần màu nâu xám, xung quanh có quầng vàng sáng đặc trưng (halo). Vết bệnh có tâm trũng nứt nẻ.",
+        "treatment": "Phun thuốc gốc đồng định kỳ khi cây ra đọt non và quả mới tượng. Phòng trừ sâu vẽ bùa vì đường đục của sâu là cửa ngõ cho vi khuẩn xâm nhập."
     },
-    "MANGO_Alternaria_Mango": {
+    "orange_Citrus_Melanose": {
         "status": "warning",
-        "fruit": "Xoài",
+        "fruit": "Cam",
         "severity": "Trung bình",
-        "description": "Đốm bệnh hình tròn hoặc bầu dục màu nâu sậm, có các vòng đồng tâm trên vỏ xoài làm quả mất giá trị.",
-        "treatment": "Phun phòng trừ nấm Mancozeb hoặc Chlorothalonil khi thời tiết ấm ẩm."
+        "description": "Vô số nốt sần nhỏ li ti màu nâu đen bám ráp như giấy nhám trên vỏ quả, thường xếp thành vệt dài chảy dọc theo dòng nước mưa.",
+        "treatment": "Cắt tỉa triệt để toàn bộ cành khô, cành chết trong tán vì đây là ổ lưu tồn nấm. Phun thuốc trừ nấm gốc Azoxystrobin hoặc Difenoconazole sau khi hoa tàn."
     },
-    "MANGO_Anthracnose_Mango": {
-        "status": "warning",
-        "fruit": "Xoài",
-        "severity": "Trung bình - Cao",
-        "description": "Các mảng đốm đen loang lổ trên vỏ xoài, hoa và lá non, gây thui hoa và rụng quả non hàng loạt.",
-        "treatment": "Tỉa cành tạo độ thông thoáng. Phun phòng trừ bằng Prochloraz, Difenoconazole trước và sau khi trổ hoa."
-    },
-    "MANGO_Black Mould Rot (Aspergillus)_Mango": {
-        "status": "danger",
-        "fruit": "Xoài",
-        "severity": "Cao",
-        "description": "Vết bệnh phủ lớp bột mốc đen mịn như nhung trên bề mặt quả bị trầy xước trong quá trình thu hoạch.",
-        "treatment": "Tránh làm trầy xước vỏ khi thu hái và vận chuyển. Rửa sạch quả sau thu hoạch bằng nước ấm."
-    },
-    "MANGO_Healthy_Mango": {
+    "orange_Healthy": {
         "status": "healthy",
-        "fruit": "Xoài",
+        "fruit": "Cam",
         "severity": "Không có",
-        "description": "Quả xoài phát triển toàn diện, vỏ láng mịn, màu sắc tự nhiên không tì vết.",
-        "treatment": "Duy trì bao quả và chế độ bón phân Kali giúp vỏ xoài sáng đẹp."
+        "description": "Vỏ quả cam láng mịn, màu sắc sáng khỏe, túi tinh dầu đều đặn, không có vết thâm sẹo nấm bệnh.",
+        "treatment": "Bổ sung phân hữu cơ hoai mục, duy trì độ ẩm đất và phun bổ sung vi lượng Bo, Kẽm để quả mọng nước, vỏ bóng."
     },
-    "MANGO_Stem and Rot (Lasiodiplodia)_Mango": {
+    "pomegranate_Alternaria": {
         "status": "danger",
-        "fruit": "Xoài",
+        "fruit": "Lựu",
         "severity": "Cao",
-        "description": "Bắt đầu thối sẫm màu từ phần cuống quả lan rộng xuống thân quả sau thu hoạch và tồn trữ.",
-        "treatment": "Cắt cuống dài 1-2cm khi thu hái, xử lý quả bằng nước ấm 52°C trong 5 phút trước khi đóng gói."
+        "description": "Các vết tròn thâm đen lõm sâu trên vỏ lựu, lấn sâu vào bên trong làm các hạt lựu bị thối đen, nhũn nát trong khi vỏ ngoài có thể chỉ bị đốm nhỏ.",
+        "treatment": "Bao quả bằng túi chuyên dụng. Phun phòng thuốc trừ nấm Difenoconazole, Iprodione hoặc Chlorothalonil sau khi đậu quả non."
     },
-    "POMEGRANATE_Alternaria_Pomegranate": {
+    "pomegranate_Anthracnose": {
         "status": "warning",
         "fruit": "Lựu",
         "severity": "Trung bình",
-        "description": "Bệnh thối tim Alternaria xâm nhập từ đài hoa làm các hạt lựu bên trong chuyển màu đen thối chua.",
-        "treatment": "Phun thuốc phòng trừ nấm ngay từ giai đoạn rụng cánh hoa."
+        "description": "Đốm bệnh tròn màu nâu đen với các vòng tròn đồng tâm, quả bị khô xơ teo tóp và nứt vỏ sớm.",
+        "treatment": "Cắt tỉa thông thoáng, dọn dẹp quả bệnh dưới gốc. Phun Carbendazim hoặc Mancozeb luân phiên."
     },
-    "POMEGRANATE_Anthracnose_Pomegranate": {
-        "status": "warning",
-        "fruit": "Lựu",
-        "severity": "Trung bình",
-        "description": "Các vết đốm trũng tròn màu nâu sẫm trên vỏ quả lựu, làm quả kém phát triển và sượng thịt.",
-        "treatment": "Phun Copper Oxychloride hoặc Carbendazim định kỳ 15 ngày/lần trong mùa mưa."
-    },
-    "POMEGRANATE_Bacterial_Blight_Pomegranate": {
+    "pomegranate_Bacterial_Blight": {
         "status": "danger",
         "fruit": "Lựu",
         "severity": "Rất cao",
-        "description": "Vết bệnh màu đen góc cạnh, quả bị nứt dọc hình chữ Y hoặc chữ L, rỉ dịch vi khuẩn nguy hiểm.",
-        "treatment": "Cắt bỏ cành bệnh đem tiêu hủy xa vườn. Phun luân phiên Streptomycin Sulfate và thuốc gốc đồng."
+        "description": "Vết bệnh thâm đen dạng góc cạnh hoặc hình sao, xung quanh có quầng ủng nước, quả bị nứt nẻ sâu hình chữ Y hoặc chữ L, làm quả biến dạng hoàn toàn.",
+        "treatment": "Tiêu hủy ngay các quả và cành bị bệnh. Phun luân phiên Streptomycin Sulfate kết hợp gốc đồng (Copper Hydroxide)."
     },
-    "POMEGRANATE_Cercospora_Pomegranate": {
+    "pomegranate_Cercospora": {
         "status": "warning",
         "fruit": "Lựu",
         "severity": "Trung bình",
-        "description": "Các đốm tròn nhỏ viền đen tâm xám (mắt chim) xuất hiện dày đặc trên lá và vỏ lựu.",
-        "treatment": "Phun phòng Mancozeb hoặc Difenoconazole khi phát hiện các đốm đầu tiên."
+        "description": "Vết đốm nhỏ tròn màu nâu viền sẫm, tâm có màu xám trắng giống mắt chim rải rác trên vỏ lựu.",
+        "treatment": "Phun thuốc trừ nấm gốc Thiophanate-methyl, Azoxystrobin hoặc Difenoconazole."
     },
-    "POMEGRANATE_Healthy_Pomegranate": {
+    "pomegranate_Healthy": {
         "status": "healthy",
         "fruit": "Lựu",
         "severity": "Không có",
-        "description": "Quả lựu căng mọng, vỏ đỏ hồng hoặc vàng bóng, không có khuyết tật hay đốm bệnh.",
-        "treatment": "Tưới nước điều độ giữ ẩm đều, tránh để đất khô kiệt rồi tưới đột ngột làm nứt quả."
+        "description": "Vỏ quả lựu tròn đều, căng bóng, đài hoa khép tự nhiên, hạt mẩy chắc không có dấu hiệu nấm khuẩn.",
+        "treatment": "Tưới tiêu hợp lý, tránh để đất quá khô rồi tưới dồn dập gây nứt quả. Bổ sung Kali thời kỳ nuôi quả."
     }
 }
 
@@ -200,3 +195,14 @@ def get_pathogen_info(class_name: str) -> dict:
         "loai": "Không có",
         "ghi_chu": ""
     }
+
+
+def get_disease_info(class_name: str) -> dict:
+    """Retrieve detailed disease info dictionary for a given 15-class label."""
+    return DISEASE_INFO.get(class_name, {
+        "status": "info",
+        "fruit": "Trái cây",
+        "severity": "Không xác định",
+        "description": "Chưa có mô tả chi tiết cho lớp bệnh này.",
+        "treatment": "Vui lòng kiểm tra và theo dõi sát diễn biến tại vườn."
+    })

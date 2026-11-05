@@ -64,13 +64,23 @@ def explain_diagnosis_with_gemini(
     tac_nhan_str = ", ".join(tac_nhan_list) if has_specific_pathogen else "Không có tác nhân cụ thể"
     ghi_chu = pathogen_info.get("ghi_chu", "")
 
+    # Xác định mức độ phân loại chuẩn theo Tiếng Việt: An toàn / Trung bình / Nguy hiểm
+    raw_status = str(disease_info.get("status", "")).lower()
+    raw_severity = str(disease_info.get("severity", "")).lower()
+    if is_healthy or raw_status == "healthy" or "an toàn" in raw_severity or "không" in raw_severity:
+        phan_loai_tab3 = "An toàn"
+    elif raw_status == "danger" or "cao" in raw_severity or "nguy hiểm" in raw_severity:
+        phan_loai_tab3 = "Nguy hiểm"
+    else:
+        phan_loai_tab3 = "Trung bình"
+
     # Trường hợp 1: Không có API Key -> Trả về nội dung mặc định dễ hiểu
     if not active_key:
         return _get_default_farmer_fallback(
             vn_name=vn_name,
             fruit=fruit,
             is_healthy=is_healthy,
-            phan_loai_tab3=disease_info.get("status", "warning"),
+            phan_loai_tab3=phan_loai_tab3,
             has_specific_pathogen=has_specific_pathogen,
             tac_nhan_formatted=tac_nhan_formatted,
             loai_tac_nhan=loai_tac_nhan
@@ -90,15 +100,6 @@ def explain_diagnosis_with_gemini(
                 pil_img.thumbnail((384, 384), Image.Resampling.LANCZOS)
         except Exception as e:
             print(f"[GeminiService] Cảnh báo chuyển đổi/nén ảnh: {e}")
-
-    # Xác định mức độ phân loại chuẩn theo Tab 3 (Sổ tay 17 lớp bệnh)
-    status = disease_info.get("status", "warning")
-    if is_healthy or status == "healthy":
-        phan_loai_tab3 = "An toàn"
-    elif status == "danger":
-        phan_loai_tab3 = "Nguy hiểm"
-    else:
-        phan_loai_tab3 = "Trung bình"
 
     # Nhiệt độ tham khảo chuẩn theo từng loại quả
     temp_guide = {

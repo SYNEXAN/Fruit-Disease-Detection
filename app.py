@@ -1,8 +1,8 @@
 """
 Hugging Face Spaces - Fruit Disease Detection & Diagnosis App
 Framework: Gradio 6
-Model: EfficientNetB0 (Fine-tuned, 88.61% Accuracy, 88.48% F1-score)
-Compatible with: Hugging Face CPU basic & ZeroGPU
+Model: ConvNeXt-V2 Advanced CMTL (98.28% Accuracy, 15 Classes)
+Architecture: Dual-Task ArcFace Species Margin + Spatial Peak-Lesion Attention Pooling + Gating
 """
 
 import os
@@ -38,10 +38,33 @@ from inference import predict_image, resolve_model_path, warmup_model
 from classes import FRUIT_CLASSES, FRUIT_VN_MAP, DISEASE_INFO
 from gemini_service import explain_diagnosis_with_gemini
 
-# Sample images directory
+# ============================================================
+# High-Confidence Sample Images Selection
+# ============================================================
 TEST_IMAGES_DIR = ROOT_DIR / "test-images"
+SAMPLE_CANDIDATES = [
+    "test-images/3fruits/mango_anthracnose.jpg",
+    "test-images/3fruits/mango_bacterial_canker.jpg",
+    "test-images/ripe-mango-isolated-on-white-background-F2G431.jpg",
+    "test-images/ripe-mango-on-white-background-CPTPNN.jpg",
+    "test-images/3fruits/orange_citrus_canker.jpg",
+    "test-images/3fruits/orange_citrus_melanose.jpg",
+    "test-images/istockphoto-174652957-1024x1024.jpg",
+    "test-images/OIP (6).webp",
+    "test-images/3fruits/pomegranate_alternaria.jpg",
+    "test-images/3fruits/pomegranate_bacterial_blight.jpg",
+    "test-images/3fruits/pomegranate_healthy.jpg",
+    "test-images/7_Luu_Chay_Vi_Khuan.jpg"
+]
+
 SAMPLE_IMAGES = []
-if TEST_IMAGES_DIR.is_dir():
+for rel in SAMPLE_CANDIDATES:
+    p = ROOT_DIR / rel
+    if p.is_file():
+        SAMPLE_IMAGES.append([str(p)])
+
+# Fallback to scanning if specific candidates not found
+if not SAMPLE_IMAGES and TEST_IMAGES_DIR.is_dir():
     SAMPLE_IMAGES = [
         [str(TEST_IMAGES_DIR / f)]
         for f in sorted(os.listdir(TEST_IMAGES_DIR))
@@ -55,7 +78,7 @@ if TEST_IMAGES_DIR.is_dir():
 def run_diagnosis(input_img, conf_threshold=0.75):
     """
     Handle inference request from Gradio interface.
-    Executes fast unified DL + Grad-CAM (~0.49s), then Gemini deep analysis (~2s),
+    Executes fast unified DL + Grad-CAM, then Gemini deep analysis,
     and returns complete 3-feature diagnosis all at once.
     """
     if input_img is None:
@@ -234,12 +257,12 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
     gr.HTML("""
     <div class="main-header">
         <h1>🍎 Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả</h1>
-        <p>Hệ thống AI nhận diện và chẩn đoán bệnh trên cây ăn quả (Táo, Ổi, Xoài, Lựu) sử dụng <strong>EfficientNetB0</strong></p>
+        <p>Hệ thống AI nhận diện và chẩn đoán bệnh trên cây ăn quả (Xoài, Cam, Lựu) sử dụng <strong>ConvNeXt-V2 Advanced CMTL</strong></p>
         <div class="badge-bar">
-            <span class="badge">🎯 Độ chính xác kiểm thử: 88.61%</span>
-            <span class="badge">⚡ Điểm F1-Score: 88.48%</span>
-            <span class="badge">🍏 17 Lớp bệnh & quả</span>
-            <span class="badge">🚀 Tối ưu hóa mô hình TFLite</span>
+            <span class="badge">🎯 Độ chính xác kiểm thử: 98.28%</span>
+            <span class="badge">⚡ Điểm F1-Score: 98.26%</span>
+            <span class="badge">🥭 15 Lớp bệnh & quả (Xoài, Cam, Lựu)</span>
+            <span class="badge">🚀 Dual-Task CMTL & ArcFace Margin</span>
         </div>
     </div>
     """)
@@ -292,29 +315,27 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
             )
 
         # Tab 3: Handbook & Classes
-        with gr.TabItem("📋 Sổ Tay 17 Lớp Bệnh Trái Cây", id="tab_handbook"):
+        with gr.TabItem("📋 Sổ Tay 15 Lớp Bệnh Trái Cây", id="tab_handbook"):
             gr.Markdown("""
-### Danh Sách 17 Lớp Bệnh Được Huấn Luyện Trong Mô Hình:
+### Danh Sách 15 Lớp Bệnh Được Huấn Luyện Trong Mô Hình (ConvNeXt-V2 Advanced CMTL):
 
-| STT | Loại Quả | Tên Bệnh (Tiếng Anh) | Tên Tiếng Việt | Mức Độ |
+| STT | Loại Quả | Tên Lớp Kỹ Thuật | Tên Bệnh Tiếng Việt | Mức Độ |
 | :---: | :---: | :--- | :--- | :---: |
-| 1 | 🍎 Táo | `APPLE_Blotch_Apple` | Bệnh đốm lá đốm quả Marssonina | 🟡 Trung bình |
-| 2 | 🍎 Táo | `APPLE_Healthy_Apple` | Táo khỏe mạnh | 🟢 An toàn |
-| 3 | 🍎 Táo | `APPLE_Rot_Apple` | Bệnh thối quả (Black/Bitter Rot) | 🔴 Nguy hiểm |
-| 4 | 🍎 Táo | `APPLE_Scab_Apple` | Bệnh vảy nấm Apple Scab | 🟡 Trung bình |
-| 5 | 🍈 Ổi | `GUAVA_Anthracnose_Guava` | Bệnh thán thư ổi | 🟡 Trung bình |
-| 6 | 🍈 Ổi | `GUAVA_Fruitfly_Guava` | Bị ruồi đục quả phá hại | 🔴 Nguy hiểm |
-| 7 | 🍈 Ổi | `GUAVA_Healthy_Guava` | Ổi khỏe mạnh | 🟢 An toàn |
-| 8 | 🥭 Xoài | `MANGO_Alternaria_Mango` | Bệnh đốm nấm Alternaria xoài | 🟡 Trung bình |
-| 9 | 🥭 Xoài | `MANGO_Anthracnose_Mango` | Bệnh thán thư xoài | 🟡 Trung bình |
-| 10 | 🥭 Xoài | `MANGO_Black Mould Rot (Aspergillus)_Mango` | Bệnh thối mốc đen Aspergillus | 🔴 Nguy hiểm |
-| 11 | 🥭 Xoài | `MANGO_Healthy_Mango` | Xoài khỏe mạnh | 🟢 An toàn |
-| 12 | 🥭 Xoài | `MANGO_Stem and Rot (Lasiodiplodia)_Mango` | Bệnh thối cuống thối thân xoài | 🔴 Nguy hiểm |
-| 13 | 🫐 Lựu | `POMEGRANATE_Alternaria_Pomegranate` | Bệnh đốm thối đen Alternaria | 🟡 Trung bình |
-| 14 | 🫐 Lựu | `POMEGRANATE_Anthracnose_Pomegranate` | Bệnh thán thư quả lựu | 🟡 Trung bình |
-| 15 | 🫐 Lựu | `POMEGRANATE_Bacterial_Blight_Pomegranate` | Bệnh cháy vi khuẩn lựu | 🔴 Nguy hiểm |
-| 16 | 🫐 Lựu | `POMEGRANATE_Cercospora_Pomegranate` | Bệnh đốm mắt chim Cercospora | 🟡 Trung bình |
-| 17 | 🫐 Lựu | `POMEGRANATE_Healthy_Pomegranate` | Lựu khỏe mạnh | 🟢 An toàn |
+| 1 | 🥭 Xoài | `mango_Anthracnose` | Bệnh thán thư xoài | 🔴 Nguy hiểm |
+| 2 | 🥭 Xoài | `mango_Bacterial_Canker` | Bệnh loét vi khuẩn xoài | 🔴 Nguy hiểm |
+| 3 | 🥭 Xoài | `mango_Healthy` | Xoài khỏe mạnh | 🟢 An toàn |
+| 4 | 🥭 Xoài | `mango_Powdery_Mildew` | Bệnh phấn trắng xoài | 🟡 Trung bình |
+| 5 | 🥭 Xoài | `mango_Scab` | Bệnh vảy nấm ghẻ xoài | 🟡 Trung bình |
+| 6 | 🥭 Xoài | `mango_Sooty_Mould` | Bệnh bồ hóng muội đen xoài | 🟡 Trung bình |
+| 7 | 🥭 Xoài | `mango_Stem_End_Rot` | Bệnh thối đầu cuống quả xoài | 🔴 Nguy hiểm |
+| 8 | 🍊 Cam | `orange_Citrus_Canker` | Bệnh loét vi khuẩn trên cam | 🔴 Nguy hiểm |
+| 9 | 🍊 Cam | `orange_Citrus_Melanose` | Bệnh đốm sẹo gôm đen Melanose | 🟡 Trung bình |
+| 10 | 🍊 Cam | `orange_Healthy` | Cam khỏe mạnh | 🟢 An toàn |
+| 11 | 🫐 Lựu | `pomegranate_Alternaria` | Bệnh đốm thối đen Alternaria | 🔴 Nguy hiểm |
+| 12 | 🫐 Lựu | `pomegranate_Anthracnose` | Bệnh thán thư quả lựu | 🟡 Trung bình |
+| 13 | 🫐 Lựu | `pomegranate_Bacterial_Blight` | Bệnh cháy vi khuẩn trên lựu | 🔴 Nguy hiểm |
+| 14 | 🫐 Lựu | `pomegranate_Cercospora` | Bệnh đốm mắt chim Cercospora | 🟡 Trung bình |
+| 15 | 🫐 Lựu | `pomegranate_Healthy` | Lựu khỏe mạnh | 🟢 An toàn |
             """)
 
 if __name__ == "__main__":

@@ -1,21 +1,39 @@
 __pycache__/
-*.pyc
+*.py[cod]
 .env
-.venv
+.venv/
 .idea/
 .vscode/
 
-# Temporary & Debug images
+# Dataset & large training caches
+dataset/
+dataset_expansion/
+scratch/
+kaggle_kernels/
+hinh_anh_bao_cao/
+report_figures/
+HUONG_DAN_*
+*.docx
+*.log
+*.tmp
+
+# Temporary debug images
 cam_*.jpg
 healthy_*.jpg
 debug_*.jpg
 test_*.jpg
+crop_*.png
 test_out/
 
-# Logs & scratch
-*.log
-kaggle_v7_stdout.txt
-test_feature1.py
-
-# Model archive
-model/archive_v7/
+# Other heavy model checkpoints (Keep only v6 SOTA)
+model/checkpoints_cmtl_v5/
+model/checkpoints_cmtl_v6/*.csv
+model/checkpoints_cmtl_v6/*.png
+model/checkpoints_cmtl_v6/*.log
+model/checkpoints_3fruits/*backup*.pth
+model/checkpoints_3fruits/*dual_head*.pth
+model/checkpoints_3fruits/*robust*.pth
+model/checkpoints_3fruits/*single_head*.pth
+model/checkpoints_3fruits/*v3*.pth
+model/checkpoints_3fruits/*v4*.pth
+model/archive_*/

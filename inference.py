@@ -234,22 +234,29 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
         is_bf16 = any(isinstance(v, torch.Tensor) and v.dtype == torch.bfloat16 for v in state_dict.values())
         model_dtype = torch.bfloat16 if is_bf16 else torch.float32
 
-        model = AdvancedCMTLConvNeXt(
-            model_name='convnextv2_tiny',
-            num_species=3,
-            num_diseases=15,
-            embed_dim=64,
-            pretrained=False
-        ).to(dtype=model_dtype, device=DEVICE)
+        with torch.device("meta"):
+            meta_model = AdvancedCMTLConvNeXt(
+                model_name='convnextv2_tiny',
+                num_species=3,
+                num_diseases=15,
+                embed_dim=64,
+                pretrained=False
+            ).to(dtype=model_dtype)
 
-        model.load_state_dict(state_dict, assign=True)
-        model.eval()
+        meta_model.load_state_dict(state_dict, assign=True)
+        meta_model.eval()
 
         del checkpoint, state_dict
         gc.collect()
 
-        _MODEL = model
-        print(f"[Inference] Model successfully loaded ({model_dtype}) into memory and moved to {DEVICE}")
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
+
+        _MODEL = meta_model
+        print(f"[Inference] Model successfully loaded ({model_dtype}) via meta device and moved to {DEVICE}")
         return _MODEL
     except Exception as e:
         print(f"[Inference] Error loading model weights: {e}")
@@ -383,11 +390,9 @@ def compute_gradcam(
     top_idx = int(target_idx) if target_idx is not None else int(np.argmax(disease_logits[0].detach().cpu().float().numpy()))
 
     score = disease_logits[0, top_idx]
-    score.backward(retain_graph=False)
-
-    grad = feat_var.grad[0]  # [768, 7, 7]
+    grads = torch.autograd.grad(score, feat_var, retain_graph=False)[0][0]  # [768, 7, 7]
     feat = feat_var[0].detach()  # [768, 7, 7]
-    weights = torch.mean(F.relu(grad), dim=[-2, -1], keepdim=True)
+    weights = torch.mean(F.relu(grads), dim=[-2, -1], keepdim=True)
     cam = torch.sum(weights * feat, dim=0).detach().cpu().float().numpy()
     cam = np.maximum(cam, 0)
 
@@ -450,13 +455,12 @@ def predict_image(
     model_dtype = next(model.parameters()).dtype
     input_tensor = input_tensor.to(dtype=model_dtype, device=DEVICE)
 
-    # 2x Horizontal Flip Test-Time Augmentation (TTA) Batch: [Original, Flipped]
-    tta_batch = torch.cat([input_tensor, torch.flip(input_tensor, dims=[3])], dim=0)
-
+    # Sequential 2x Horizontal Flip TTA (Evaluates 1 image at a time to reduce activation memory by 50%)
     with torch.no_grad():
-        f_batch, d_batch, _ = model(tta_batch)
-        fruit_logits = f_batch.float().mean(dim=0, keepdim=True)
-        disease_logits = d_batch.float().mean(dim=0, keepdim=True)
+        f1, d1, _ = model(input_tensor)
+        f2, d2, _ = model(torch.flip(input_tensor, dims=[3]))
+        fruit_logits = (f1.float() + f2.float()) * 0.5
+        disease_logits = (d1.float() + d2.float()) * 0.5
 
         sp_probs = F.softmax(fruit_logits, dim=-1)[0].cpu().numpy()
         fruit_idx = int(np.argmax(sp_probs))
@@ -504,6 +508,11 @@ def predict_image(
 
     # Garbage collection after inference pass
     gc.collect()
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 
     return {
         "predictions": predictions,

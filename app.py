@@ -359,11 +359,16 @@ if __name__ == "__main__":
         warmup_model()
         import gc
         gc.collect()
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
     except Exception as _e:
         print(f"[App] Warmup notice: {_e}", flush=True)
 
     print(f"[App] Starting Gradio web server on 0.0.0.0:{port}...", flush=True)
-    demo.launch(
+    demo.queue(default_concurrency_limit=1, max_size=4).launch(
         server_name="0.0.0.0",
         server_port=port,
         share=False,

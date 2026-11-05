@@ -336,7 +336,8 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
             btn_predict.click(
                 fn=run_diagnosis,
                 inputs=[img_input],
-                outputs=[img_output, diagnosis_output]
+                outputs=[img_output, diagnosis_output],
+                concurrency_limit=1
             )
 
         # Tab 2: Webcam Stream
@@ -352,7 +353,8 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
             btn_cam_predict.click(
                 fn=run_diagnosis,
                 inputs=[cam_input],
-                outputs=[cam_img_out, cam_diag_out]
+                outputs=[cam_img_out, cam_diag_out],
+                concurrency_limit=1
             )
 
         # Tab 3: Handbook & Classes

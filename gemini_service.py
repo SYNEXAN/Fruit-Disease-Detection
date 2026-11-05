@@ -28,17 +28,13 @@ if _ENV_PATH.is_file():
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Cặp mô hình: Chính là 3.8-flash theo khuyến nghị chính thức của Google API
-PRIMARY_MODEL = "gemini-3.8-flash"
-FALLBACK_MODEL = "gemini-2.5-flash"
+# Cặp mô hình: Chính là 3.5-flash-lite siêu nhanh theo khuyến nghị chính thức của Google API
+PRIMARY_MODEL = "gemini-3.5-flash-lite"
+FALLBACK_MODEL = "gemini-flash-lite-latest"
 PREFERRED_GEMINI_MODELS = [
-    "gemini-3.8-flash",
-    "gemini-3-flash",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash"
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest"
 ]
 
 _CACHED_CLIENT = None
@@ -201,6 +197,12 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
     except Exception as general_err:
         last_error = general_err
         print(f"[GeminiService] Lỗi kết nối Google GenAI: {general_err}")
+    finally:
+        if pil_img is not None:
+            try:
+                pil_img.close()
+            except Exception:
+                pass
 
     if raw_response:
         explanation, pathogen_analysis, advice = _parse_farmer_response(

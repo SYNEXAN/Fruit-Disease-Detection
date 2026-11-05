@@ -94,27 +94,12 @@ def get_process_rss_mb() -> float:
 
 
 def cleanup_temp_memory():
-    """Giải phóng triệt để RAM và dọn sạch bộ nhớ đệm /tmp/gradio trên Render Free Tier."""
+    """Giải phóng triệt để RAM trên Render Free Tier."""
     try:
         import gc
         gc.collect()
         import ctypes
         ctypes.CDLL("libc.so.6").malloc_trim(0)
-    except Exception:
-        pass
-    try:
-        tmp_dir = Path("/tmp/gradio")
-        if tmp_dir.is_dir():
-            import time, shutil
-            now = time.time()
-            for p in tmp_dir.iterdir():
-                try:
-                    if p.is_file() and (now - p.stat().st_mtime > 15):
-                        p.unlink()
-                    elif p.is_dir() and (now - p.stat().st_mtime > 15):
-                        shutil.rmtree(p, ignore_errors=True)
-                except Exception:
-                    pass
     except Exception:
         pass
 

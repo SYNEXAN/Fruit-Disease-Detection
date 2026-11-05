@@ -82,6 +82,32 @@ if not SAMPLE_IMAGES and TEST_IMAGES_DIR.is_dir():
 # ============================================================
 # Core Prediction Callback Function
 # ============================================================
+def cleanup_temp_memory():
+    """Giải phóng triệt để RAM và dọn sạch bộ nhớ đệm /tmp/gradio trên Render Free Tier."""
+    try:
+        import gc
+        gc.collect()
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+    try:
+        tmp_dir = Path("/tmp/gradio")
+        if tmp_dir.is_dir():
+            import time, shutil
+            now = time.time()
+            for p in tmp_dir.iterdir():
+                try:
+                    if p.is_file() and (now - p.stat().st_mtime > 15):
+                        p.unlink()
+                    elif p.is_dir() and (now - p.stat().st_mtime > 15):
+                        shutil.rmtree(p, ignore_errors=True)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 @spaces.GPU
 def run_diagnosis(input_img, conf_threshold=0.75):
     """
@@ -160,6 +186,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 #### 📦 Đề xuất xử lý:
 {advice_text}
 """
+        cleanup_temp_memory()
         return gradcam_img, final_diagnosis_md.strip()
 
     except Exception as e:
@@ -180,6 +207,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 - **Phân loại**: {info.get('severity', 'Cảnh báo')}
 - **Xử lý**: {info.get('treatment', 'Theo dõi sát diễn biến vết bệnh và kiểm tra bảo quản.')}
 """
+        cleanup_temp_memory()
         return gradcam_img, fallback_md.strip()
 
 

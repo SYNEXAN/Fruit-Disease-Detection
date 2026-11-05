@@ -41,6 +41,17 @@ PREFERRED_GEMINI_MODELS = [
     "gemini-1.5-flash"
 ]
 
+_CACHED_CLIENT = None
+_CACHED_KEY = None
+
+def _get_client(api_key: str):
+    global _CACHED_CLIENT, _CACHED_KEY
+    if _CACHED_CLIENT is None or _CACHED_KEY != api_key:
+        from google import genai
+        _CACHED_CLIENT = genai.Client(api_key=api_key)
+        _CACHED_KEY = api_key
+    return _CACHED_CLIENT
+
 
 def explain_diagnosis_with_gemini(
     gradcam_image: Any,
@@ -170,8 +181,7 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
     last_error = None
 
     try:
-        from google import genai
-        client = genai.Client(api_key=active_key)
+        client = _get_client(active_key)
         contents = [pil_img, prompt_text] if pil_img is not None else [prompt_text]
         
         for model_name in PREFERRED_GEMINI_MODELS:

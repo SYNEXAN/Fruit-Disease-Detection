@@ -7,6 +7,15 @@ Architecture: Dual-Task ArcFace Species Margin + Spatial Peak-Lesion Attention P
 
 import os
 import sys
+
+# Configure low-memory footprint and single-threaded execution for cloud containers (Render Free Tier 512MB RAM)
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["MALLOC_ARENA_MAX"] = "2"
+
 from pathlib import Path
 from typing import Dict, Tuple, Optional, Any
 from PIL import Image
@@ -339,9 +348,24 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
             """)
 
 if __name__ == "__main__":
-    print("[App] Pre-warming model and tensor execution graphs...")
-    warmup_model()
+    import threading
+    import time
+
+    def _async_warmup():
+        time.sleep(3)
+        print("[App] Background pre-warming model...")
+        try:
+            warmup_model()
+            import gc
+            gc.collect()
+        except Exception as e:
+            print(f"[App] Background warmup notice: {e}")
+
+    # Start background warmup so Gradio binds to port immediately
+    threading.Thread(target=_async_warmup, daemon=True).start()
+
     port = int(os.environ.get("PORT", 7860))
+    print(f"[App] Starting Gradio server on 0.0.0.0:{port}...")
     demo.launch(
         server_name="0.0.0.0",
         server_port=port,

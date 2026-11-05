@@ -14,6 +14,14 @@ import numpy as np
 from PIL import Image, ImageOps
 import cv2
 
+# Configure low-memory footprint and single-threaded execution for cloud containers (Render Free Tier 512MB RAM)
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["MALLOC_ARENA_MAX"] = "2"
+
 # Windows DLL directories registration for PyTorch and VC Runtimes
 if sys.platform == "win32":
     candidates = [
@@ -31,6 +39,14 @@ if sys.platform == "win32":
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# Enforce single-thread CPU execution to prevent thread arena memory bloating
+torch.set_num_threads(1)
+try:
+    torch.set_num_interop_threads(1)
+except Exception:
+    pass
+
 import timm
 
 from classes import (
@@ -222,6 +238,9 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
         checkpoint = torch.load(str(model_path), map_location=DEVICE)
         state_dict = checkpoint["model_state_dict"] if "model_state_dict" in checkpoint else checkpoint
         model.load_state_dict(state_dict)
+        del checkpoint, state_dict
+        import gc
+        gc.collect()
         model.to(DEVICE)
         model.eval()
         _MODEL = model

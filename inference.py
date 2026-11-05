@@ -65,6 +65,7 @@ def get_model() -> Optional[ort.InferenceSession]:
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
+        opts.log_severity_level = 3  # Suppress harmless device discovery warnings on cloud CPU
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
         session = ort.InferenceSession(str(model_path), sess_options=opts, providers=["CPUExecutionProvider"])

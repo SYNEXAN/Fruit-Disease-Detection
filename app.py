@@ -353,6 +353,15 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
+    print(f"[App] Pre-warming model and memory...", flush=True)
+    try:
+        from inference import warmup_model
+        warmup_model()
+        import gc
+        gc.collect()
+    except Exception as _e:
+        print(f"[App] Warmup notice: {_e}", flush=True)
+
     print(f"[App] Starting Gradio web server on 0.0.0.0:{port}...", flush=True)
     demo.launch(
         server_name="0.0.0.0",

@@ -195,12 +195,16 @@ def resolve_model_path() -> Optional[Path]:
     part2 = MODEL_DIR / "convnextv2_cmtl_v6.part2"
     target = MODEL_DIR / "convnextv2_cmtl_v6.pth"
     if part1.is_file() and part2.is_file():
-        print("[Inference] Recombining FP32 model checkpoint from parts...")
+        print("[Inference] Recombining FP32 model checkpoint in low-memory 1MB streaming chunks...")
         with open(target, "wb") as f_out:
-            with open(part1, "rb") as f1:
-                f_out.write(f1.read())
-            with open(part2, "rb") as f2:
-                f_out.write(f2.read())
+            for p in [part1, part2]:
+                with open(p, "rb") as f_in:
+                    while True:
+                        chunk = f_in.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        f_out.write(chunk)
+        gc.collect()
         print(f"[Inference] FP32 checkpoint restored successfully ({target.stat().st_size / (1024*1024):.2f} MB).")
         return target
 

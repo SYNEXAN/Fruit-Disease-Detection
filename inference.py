@@ -190,28 +190,19 @@ class AdvancedCMTLConvNeXt(nn.Module):
 # Model Loading & Warmup
 # ============================================================
 def resolve_model_path() -> Optional[Path]:
-    """Search for available Version 6 SOTA model checkpoints, downloading if needed."""
+    """Search for available Version 6 SOTA model checkpoints."""
     candidates = [
+        MODEL_DIR / "convnextv2_cmtl_v6_bf16.pth",
+        BASE_DIR / "convnextv2_cmtl_v6_bf16.pth",
         MODEL_DIR / "checkpoints_3fruits" / "convnextv2_cmtl_v6_best.pth",
         MODEL_DIR / "checkpoints_cmtl_v6" / "convnextv2_cmtl_v6_best.pth",
         MODEL_DIR / "convnextv2_cmtl_v6_best.pth",
         BASE_DIR / "convnextv2_cmtl_v6_best.pth"
     ]
-    min_size = 50 * 1024 * 1024  # 50 MB
+    min_size = 40 * 1024 * 1024  # 40 MB
     for p in candidates:
         if p.is_file() and p.stat().st_size >= min_size:
             return p
-
-    # If file is missing or is only a Git LFS pointer text file, auto-download full weights
-    try:
-        from download_model import ensure_model_downloaded
-        if ensure_model_downloaded():
-            target = MODEL_DIR / "convnextv2_cmtl_v6_best.pth"
-            if target.is_file() and target.stat().st_size >= min_size:
-                return target
-    except Exception as e:
-        print(f"[Model Warning] Could not auto-download model weights: {e}")
-
     return None
 
 
@@ -226,7 +217,10 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
         print("[Inference] Warning: Model checkpoint not found. Running in standby mode.")
         return None
 
-    print(f"[Inference] Loading Version 6 SOTA model from: {model_path}")
+    is_bf16 = "bf16" in model_path.name.lower()
+    target_dtype = torch.bfloat16 if is_bf16 else torch.float32
+
+    print(f"[Inference] Loading Version 6 SOTA model from: {model_path} (dtype={target_dtype})")
     try:
         model = AdvancedCMTLConvNeXt(
             model_name='convnextv2_tiny',
@@ -235,13 +229,13 @@ def get_model() -> Optional[AdvancedCMTLConvNeXt]:
             embed_dim=64,
             pretrained=False
         )
-        checkpoint = torch.load(str(model_path), map_location=DEVICE)
-        state_dict = checkpoint["model_state_dict"] if "model_state_dict" in checkpoint else checkpoint
+        checkpoint = torch.load(str(model_path), map_location="cpu")
+        state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
         model.load_state_dict(state_dict)
         del checkpoint, state_dict
         import gc
         gc.collect()
-        model.to(DEVICE)
+        model.to(dtype=target_dtype, device=DEVICE)
         model.eval()
         _MODEL = model
         print("[Inference] Model successfully loaded and moved to", DEVICE)
@@ -333,12 +327,13 @@ def compute_gradcam(
     Pure PyTorch Grad-CAM on the 7x7 spatial feature map of ConvNeXt-V2 with Min-Max Scaling.
     Matches Kaggle V6 Grad-CAM with 100% exact bit-for-bit lesion focus.
     """
-    input_var = input_tensor.clone().requires_grad_(True)
+    model_dtype = next(model.parameters()).dtype
+    input_var = input_tensor.to(dtype=model_dtype, device=DEVICE).clone().requires_grad_(True)
     model.zero_grad()
     sp_logits, disease_logits, feat_map = model(input_var, detach_species_for_disease=True)
     feat_map.retain_grad()
 
-    disease_probs = F.softmax(disease_logits, dim=-1).detach().cpu().numpy()[0]
+    disease_probs = F.softmax(disease_logits.to(torch.float32), dim=-1).detach().cpu().numpy()[0]
     top_idx = int(target_idx) if target_idx is not None else int(np.argmax(disease_probs))
 
     score = disease_logits[0, top_idx]
@@ -347,7 +342,7 @@ def compute_gradcam(
     grad = feat_map.grad[0]  # [768, 7, 7]
     feat = feat_map[0].detach()  # [768, 7, 7]
     weights = torch.mean(F.relu(grad), dim=[-2, -1], keepdim=True)
-    cam = torch.sum(weights * feat, dim=0).detach().cpu().numpy()
+    cam = torch.sum(weights * feat, dim=0).detach().to(torch.float32).cpu().numpy()
     cam = np.maximum(cam, 0)
 
     if np.max(cam) > 0:
@@ -406,13 +401,14 @@ def predict_image(
             "pathogen_info": get_pathogen_info(dummy_class)
         }
 
+    model_dtype = next(model.parameters()).dtype
     # 2x Horizontal Flip Test-Time Augmentation (TTA) Batch: [Original, Flipped]
-    tta_batch = torch.cat([input_tensor, torch.flip(input_tensor, dims=[3])], dim=0)
+    tta_batch = torch.cat([input_tensor, torch.flip(input_tensor, dims=[3])], dim=0).to(dtype=model_dtype, device=DEVICE)
 
     with torch.no_grad():
         f_batch, d_batch, _ = model(tta_batch)
-        fruit_logits = f_batch.mean(dim=0, keepdim=True)
-        disease_logits = d_batch.mean(dim=0, keepdim=True)
+        fruit_logits = f_batch.mean(dim=0, keepdim=True).to(torch.float32)
+        disease_logits = d_batch.mean(dim=0, keepdim=True).to(torch.float32)
 
         sp_probs = F.softmax(fruit_logits, dim=-1)[0].cpu().numpy()
         fruit_idx = int(np.argmax(sp_probs))

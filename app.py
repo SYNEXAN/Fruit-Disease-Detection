@@ -43,7 +43,6 @@ except ImportError:
 
 import gradio as gr
 
-from inference import predict_image, resolve_model_path, warmup_model
 from classes import FRUIT_CLASSES, FRUIT_VN_MAP, DISEASE_INFO
 from gemini_service import explain_diagnosis_with_gemini
 
@@ -93,6 +92,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     if input_img is None:
         return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây lên để phân tích.**"
 
+    from inference import predict_image
     result = predict_image(input_img, conf_threshold=conf_threshold, generate_cam=True)
 
     best = result["best"]
@@ -348,24 +348,8 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
             """)
 
 if __name__ == "__main__":
-    import threading
-    import time
-
-    def _async_warmup():
-        time.sleep(3)
-        print("[App] Background pre-warming model...")
-        try:
-            warmup_model()
-            import gc
-            gc.collect()
-        except Exception as e:
-            print(f"[App] Background warmup notice: {e}")
-
-    # Start background warmup so Gradio binds to port immediately
-    threading.Thread(target=_async_warmup, daemon=True).start()
-
     port = int(os.environ.get("PORT", 7860))
-    print(f"[App] Starting Gradio server on 0.0.0.0:{port}...")
+    print(f"[App] Starting Gradio web server on 0.0.0.0:{port}...", flush=True)
     demo.launch(
         server_name="0.0.0.0",
         server_port=port,

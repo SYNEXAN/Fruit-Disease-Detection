@@ -174,16 +174,28 @@ class AdvancedCMTLConvNeXt(nn.Module):
 # Model Loading & Warmup
 # ============================================================
 def resolve_model_path() -> Optional[Path]:
-    """Search for available Version 6 SOTA model checkpoints."""
+    """Search for available Version 6 SOTA model checkpoints, downloading if needed."""
     candidates = [
         MODEL_DIR / "checkpoints_3fruits" / "convnextv2_cmtl_v6_best.pth",
         MODEL_DIR / "checkpoints_cmtl_v6" / "convnextv2_cmtl_v6_best.pth",
         MODEL_DIR / "convnextv2_cmtl_v6_best.pth",
         BASE_DIR / "convnextv2_cmtl_v6_best.pth"
     ]
+    min_size = 50 * 1024 * 1024  # 50 MB
     for p in candidates:
-        if p.is_file():
+        if p.is_file() and p.stat().st_size >= min_size:
             return p
+
+    # If file is missing or is only a Git LFS pointer text file, auto-download full weights
+    try:
+        from download_model import ensure_model_downloaded
+        if ensure_model_downloaded():
+            target = MODEL_DIR / "convnextv2_cmtl_v6_best.pth"
+            if target.is_file() and target.stat().st_size >= min_size:
+                return target
+    except Exception as e:
+        print(f"[Model Warning] Could not auto-download model weights: {e}")
+
     return None
 
 

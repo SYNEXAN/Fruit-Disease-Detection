@@ -28,10 +28,10 @@ if _ENV_PATH.is_file():
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Cặp mô hình: Chính là 2.5-flash, Fallback là 2.0-flash / 1.5-flash
-PRIMARY_MODEL = "gemini-2.5-flash"
-FALLBACK_MODEL = "gemini-2.0-flash"
-PREFERRED_GEMINI_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL, "gemini-1.5-flash"]
+# Cặp mô hình: Chính là 3.8-flash theo khuyến nghị chính thức của Google API
+PRIMARY_MODEL = "gemini-3.8-flash"
+FALLBACK_MODEL = "gemini-3-flash"
+PREFERRED_GEMINI_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL, "gemini-2.5-flash"]
 
 
 def explain_diagnosis_with_gemini(

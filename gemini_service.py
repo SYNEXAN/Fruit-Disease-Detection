@@ -176,6 +176,8 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
     last_error = None
 
     try:
+        from google.genai import types
+        gen_config = types.GenerateContentConfig(max_output_tokens=350, temperature=0.2)
         client = _get_client(active_key)
         contents = [pil_img, prompt_text] if pil_img is not None else [prompt_text]
         
@@ -183,7 +185,8 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
             try:
                 response = client.models.generate_content(
                     model=model_name,
-                    contents=contents
+                    contents=contents,
+                    config=gen_config
                 )
                 if response and response.text:
                     raw_response = response.text.strip()

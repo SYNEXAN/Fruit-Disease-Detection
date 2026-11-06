@@ -108,17 +108,20 @@ def cleanup_temp_memory():
 def run_diagnosis(input_img, conf_threshold=0.75):
     """
     Handle inference request from Gradio interface.
-    Executes fast unified DL + Grad-CAM, then Gemini deep analysis,
-    and returns complete 3-feature diagnosis all at once.
+    Executes in 2 progressive stages:
+    - Stage 1 (~1.05s): Immediately yields Grad-CAM image, class, and confidence with status notice.
+    - Stage 2 (~2s): Deep Gemini analysis yields full pathogen & advice.
     """
     if input_img is None:
-        return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây lên để phân tích.**"
+        yield None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây lên để phân tích.**"
+        return
 
     # Unpack dict if Gradio passes file metadata dict
     if isinstance(input_img, dict):
         input_img = input_img.get("path") or input_img.get("url")
         if not input_img:
-            return None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây hợp lệ.**"
+            yield None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây hợp lệ.**"
+            return
 
     rss_in = get_process_rss_mb()
     if rss_in > 0:
@@ -144,7 +147,9 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 - Hình ảnh có thể bị mờ, thiếu sáng, góc chụp quá xa hoặc triệu chứng chưa rõ ràng.
 - Vui lòng chụp hoặc tải lại ảnh cận cảnh, lấy nét trực tiếp vào vết bệnh để hệ thống chẩn đoán chính xác.
 """
-        return gradcam_img, warning_md
+        yield gradcam_img, warning_md.strip()
+        cleanup_temp_memory()
+        return
 
     # Chuẩn bị dữ liệu tác nhân đối chiếu từ CSDL (dùng làm cơ sở cho Gemini hoặc fallback)
     tac_nhan_list = pathogen.get("tac_nhan", [])
@@ -158,7 +163,18 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     ghi_chu_md = f"\n- **Ghi chú thêm**: {ghi_chu}" if ghi_chu else ""
     initial_pathogen_md = f"- **Nhóm tác nhân**: {loai_tac_nhan}\n- **Tác nhân chính**: {tac_nhan_str}{ghi_chu_md}"
 
-    # Gọi Bác sĩ Nông sản (Gemini) để hoàn tất trọn vẹn cả 3 chức năng
+    # ⚡ YIELD GIAI ĐOẠN 1: Hiển thị ngay ảnh Grad-CAM và kết quả dự đoán sau ~1s
+    stage1_md = f"""
+### 🎯 Kết Quả Dự Đoán:
+- **Tình trạng**: **{best.get('vn_name')}**
+- **Độ tin cậy**: **{best.get('percentage', 'N/A')}**
+
+---
+⏳ *AI đang phân tích...*
+"""
+    yield gradcam_img, stage1_md.strip()
+
+    # ⚡ GIAI ĐOẠN 2: Gọi Bác sĩ Nông sản (Gemini) để hoàn tất trọn vẹn cả 3 chức năng
     try:
         gemini_result = explain_diagnosis_with_gemini(
             gradcam_image=gradcam_img,
@@ -186,11 +202,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 #### 📦 Đề xuất xử lý:
 {advice_text}
 """
-        cleanup_temp_memory()
-        rss_out = get_process_rss_mb()
-        if rss_out > 0:
-            print(f"[App] Diagnosis finish - RSS: {rss_out:.1f} MB", flush=True)
-        return gradcam_img, final_diagnosis_md.strip()
+        yield gradcam_img, final_diagnosis_md.strip()
 
     except Exception as e:
         print(f"[App] Lỗi phân tích Gemini: {e}")
@@ -210,8 +222,12 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 - **Phân loại**: {info.get('severity', 'Cảnh báo')}
 - **Xử lý**: {info.get('treatment', 'Theo dõi sát diễn biến vết bệnh và kiểm tra bảo quản.')}
 """
+        yield gradcam_img, fallback_md.strip()
+    finally:
         cleanup_temp_memory()
-        return gradcam_img, fallback_md.strip()
+        rss_out = get_process_rss_mb()
+        if rss_out > 0:
+            print(f"[App] Diagnosis finish - RSS: {rss_out:.1f} MB", flush=True)
 
 
 # ============================================================

@@ -262,7 +262,7 @@ CUSTOM_CSS = """
     margin-top: 10px;
 }
 /* Đồng bộ khung ảnh hiển thị */
-.gradio-image, .gradio-image img, .image-container img {
+.image-container img, [data-testid="image"] img {
     max-height: 380px !important;
     object-fit: contain !important;
 }
@@ -318,23 +318,20 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
         # Tab 1: Image Upload
         with gr.TabItem("🖼️ Tải Ảnh Lên Phân Tích", id="tab_image"):
             with gr.Row():
-                with gr.Column(scale=1) as left_col:
+                with gr.Column(scale=1):
                     img_input = gr.Image(type="filepath", label="Tải ảnh quả", height=380)
                     btn_predict = gr.Button("🔍 Phân Tích & Chẩn Đoán", variant="primary", size="lg")
+                    if SAMPLE_IMAGES:
+                        gr.Markdown("### 📂 Thư Viện Ảnh Mẫu (Click ảnh mẫu rồi bấm Phân Tích):")
+                        gr.Examples(
+                            examples=SAMPLE_IMAGES,
+                            inputs=img_input,
+                            label="Chọn ảnh mẫu thử nhanh"
+                        )
 
                 with gr.Column(scale=1):
                     img_output = gr.Image(type="numpy", label="Ảnh phân tích", height=380)
                     diagnosis_output = gr.Markdown("💡 *Tải ảnh lên và bấm 'Phân Tích & Chẩn Đoán' để xem kết quả dự đoán.*", elem_classes=["diagnosis-container"])
-
-            # Đặt Thư viện ảnh mẫu ngay bên dưới nút bấm ở Cột bên trái
-            if SAMPLE_IMAGES:
-                with left_col:
-                    gr.Markdown("### 📂 Thư Viện Ảnh Mẫu (Click ảnh mẫu rồi bấm Phân Tích):")
-                    gr.Examples(
-                        examples=SAMPLE_IMAGES,
-                        inputs=img_input,
-                        label="Chọn ảnh mẫu thử nhanh"
-                    )
 
             btn_predict.click(
                 fn=run_diagnosis,

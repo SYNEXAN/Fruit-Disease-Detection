@@ -107,7 +107,7 @@ def cleanup_temp_memory():
 
 
 @spaces.GPU
-def run_diagnosis(input_img, conf_threshold=0.75):
+def run_diagnosis(input_img, conf_threshold=0.50):
     """
     Handle inference request from Gradio interface.
     Executes in 2 progressive stages:

@@ -20,6 +20,8 @@ os.environ["MALLOC_MMAP_THRESHOLD_"] = "65536"
 
 from pathlib import Path
 from typing import Dict, Tuple, Optional, Any
+import base64
+import cv2
 from PIL import Image
 import numpy as np
 
@@ -95,6 +97,20 @@ def get_process_rss_mb() -> float:
     return 0.0
 
 
+def encode_cam_to_data_uri(cam_rgb: Optional[np.ndarray]) -> Optional[str]:
+    """Convert Grad-CAM RGB numpy array into lightweight JPEG Base64 Data URI (<35KB).
+    Delivered directly inside the SSE event packet, eliminating secondary HTTP GET requests."""
+    if cam_rgb is None:
+        return None
+    try:
+        cam_bgr = cv2.cvtColor(cam_rgb, cv2.COLOR_RGB2BGR)
+        _, buf = cv2.imencode(".jpg", cam_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+        return "data:image/jpeg;base64," + base64.b64encode(buf).decode("utf-8")
+    except Exception as e:
+        print(f"[App] Data URI encode warning: {e}")
+        return cam_rgb
+
+
 def cleanup_temp_memory():
     """Giải phóng triệt để RAM trên Render Free Tier."""
     try:
@@ -150,7 +166,8 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 - Hình ảnh có thể bị mờ, thiếu sáng, góc chụp quá xa hoặc triệu chứng chưa rõ ràng.
 - Vui lòng chụp hoặc tải lại ảnh cận cảnh, lấy nét trực tiếp vào vết bệnh để hệ thống chẩn đoán chính xác.
 """
-        yield gradcam_img, warning_md.strip()
+        cam_data_uri = encode_cam_to_data_uri(gradcam_img)
+        yield cam_data_uri, warning_md.strip()
         cleanup_temp_memory()
         return
 
@@ -166,7 +183,8 @@ def run_diagnosis(input_img, conf_threshold=0.75):
     ghi_chu_md = f"\n- **Ghi chú thêm**: {ghi_chu}" if ghi_chu else ""
     initial_pathogen_md = f"- **Nhóm tác nhân**: {loai_tac_nhan}\n- **Tác nhân chính**: {tac_nhan_str}{ghi_chu_md}"
 
-    # ⚡ YIELD GIAI ĐOẠN 1: Hiển thị ngay ảnh Grad-CAM và kết quả dự đoán sau ~1s
+    # ⚡ YIELD GIAI ĐOẠN 1: Hiển thị ngay lập tức ĐỒNG THỜI cả ảnh Grad-CAM (qua Data URI) và kết quả text
+    cam_data_uri = encode_cam_to_data_uri(gradcam_img)
     stage1_md = f"""
 ### 🎯 Kết Quả Dự Đoán:
 - **Tình trạng**: **{best.get('vn_name')}**
@@ -175,7 +193,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 ---
 ⏳ *AI đang phân tích...*
 """
-    yield gradcam_img, stage1_md.strip()
+    yield cam_data_uri, stage1_md.strip()
 
     # ⚡ GIAI ĐOẠN 2: Gọi Bác sĩ Nông sản (Gemini) để hoàn tất trọn vẹn cả 3 chức năng
     try:
@@ -205,7 +223,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 #### 📦 Đề xuất xử lý:
 {advice_text}
 """
-        yield gradcam_img, final_diagnosis_md.strip()
+        yield gr.skip(), final_diagnosis_md.strip()
 
     except Exception as e:
         print(f"[App] Lỗi phân tích Gemini: {e}")
@@ -225,8 +243,9 @@ def run_diagnosis(input_img, conf_threshold=0.75):
 - **Phân loại**: {info.get('severity', 'Cảnh báo')}
 - **Xử lý**: {info.get('treatment', 'Theo dõi sát diễn biến vết bệnh và kiểm tra bảo quản.')}
 """
-        yield gradcam_img, fallback_md.strip()
+        yield gr.skip(), fallback_md.strip()
     finally:
+        del gradcam_img, result
         cleanup_temp_memory()
         rss_out = get_process_rss_mb()
         if rss_out > 0:
@@ -349,7 +368,7 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
                         )
 
                 with gr.Column(scale=1):
-                    img_output = gr.Image(type="numpy", label="Ảnh phân tích", height=380)
+                    img_output = gr.Image(type="numpy", format="jpeg", label="Ảnh phân tích", height=380)
                     diagnosis_output = gr.Markdown("💡 *Tải ảnh lên và bấm 'Phân Tích & Chẩn Đoán' để xem kết quả dự đoán.*", elem_classes=["diagnosis-container"])
 
             btn_predict.click(
@@ -366,7 +385,7 @@ with gr.Blocks(title="Nhận Diện & Chẩn Đoán Bệnh Cây Ăn Quả") as d
                     cam_input = gr.Image(sources=["webcam"], type="filepath", label="Bật Camera chụp trực tiếp quả/lá", height=380)
                     btn_cam_predict = gr.Button("📸 Chụp & Nhận Diện Ngay", variant="primary", size="lg")
                 with gr.Column(scale=1):
-                    cam_img_out = gr.Image(type="numpy", label="Ảnh phân tích", height=380)
+                    cam_img_out = gr.Image(type="numpy", format="jpeg", label="Ảnh phân tích", height=380)
                     cam_diag_out = gr.Markdown("💡 *Chụp ảnh qua camera để xem kết quả dự đoán.*", elem_classes=["diagnosis-container"])
 
             btn_cam_predict.click(

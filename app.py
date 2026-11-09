@@ -15,6 +15,8 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["MALLOC_ARENA_MAX"] = "1"
+os.environ["MALLOC_TRIM_THRESHOLD_"] = "65536"
+os.environ["MALLOC_MMAP_THRESHOLD_"] = "65536"
 
 from pathlib import Path
 from typing import Dict, Tuple, Optional, Any
@@ -123,6 +125,7 @@ def run_diagnosis(input_img, conf_threshold=0.75):
             yield None, "⚠️ **Vui lòng chọn hoặc tải một ảnh trái cây hợp lệ.**"
             return
 
+    cleanup_temp_memory()
     rss_in = get_process_rss_mb()
     if rss_in > 0:
         print(f"[App] Diagnosis start - Current RSS: {rss_in:.1f} MB", flush=True)

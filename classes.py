@@ -36,27 +36,27 @@ FRUIT_GROUPS: Dict[str, List[int]] = {
 }
 
 FRUIT_NAMES_VN: Dict[str, str] = {
-    "mango": "Xoài 🥭",
-    "orange": "Cam 🍊",
-    "pomegranate": "Lựu 🫐"
+    "mango": "Xoài",
+    "orange": "Cam",
+    "pomegranate": "Lựu"
 }
 
 FRUIT_VN_MAP: Dict[str, str] = {
-    "mango_Anthracnose": "🥭 Xoài - Bệnh thán thư (Anthracnose)",
-    "mango_Bacterial_Canker": "🥭 Xoài - Bệnh loét vi khuẩn (Bacterial Canker)",
-    "mango_Healthy": "🥭 Xoài - Quả khỏe mạnh",
-    "mango_Powdery_Mildew": "🥭 Xoài - Bệnh phấn trắng (Powdery Mildew)",
-    "mango_Scab": "🥭 Xoài - Bệnh vảy nấm ghẻ (Mango Scab)",
-    "mango_Sooty_Mould": "🥭 Xoài - Bệnh bồ hóng muội đen (Sooty Mould)",
-    "mango_Stem_End_Rot": "🥭 Xoài - Bệnh thối đầu cuống quả (Stem-End Rot)",
-    "orange_Citrus_Canker": "🍊 Cam - Bệnh loét vi khuẩn (Citrus Canker)",
-    "orange_Citrus_Melanose": "🍊 Cam - Bệnh đốm sẹo gôm đen Melanose",
-    "orange_Healthy": "🍊 Cam - Quả khỏe mạnh",
-    "pomegranate_Alternaria": "🫐 Lựu - Bệnh đốm thối đen Alternaria",
-    "pomegranate_Anthracnose": "🫐 Lựu - Bệnh thán thư quả lựu",
-    "pomegranate_Bacterial_Blight": "🫐 Lựu - Bệnh cháy vi khuẩn (Bacterial Blight)",
-    "pomegranate_Cercospora": "🫐 Lựu - Bệnh đốm mắt chim Cercospora",
-    "pomegranate_Healthy": "🫐 Lựu - Quả khỏe mạnh"
+    "mango_Anthracnose": "Xoài - Bệnh thán thư (Anthracnose)",
+    "mango_Bacterial_Canker": "Xoài - Bệnh loét vi khuẩn (Bacterial Canker)",
+    "mango_Healthy": "Xoài - Quả khỏe mạnh",
+    "mango_Powdery_Mildew": "Xoài - Bệnh phấn trắng (Powdery Mildew)",
+    "mango_Scab": "Xoài - Bệnh vảy nấm ghẻ (Mango Scab)",
+    "mango_Sooty_Mould": "Xoài - Bệnh bồ hóng muội đen (Sooty Mould)",
+    "mango_Stem_End_Rot": "Xoài - Bệnh thối đầu cuống quả (Stem-End Rot)",
+    "orange_Citrus_Canker": "Cam - Bệnh loét vi khuẩn (Citrus Canker)",
+    "orange_Citrus_Melanose": "Cam - Bệnh đốm sẹo gôm đen Melanose",
+    "orange_Healthy": "Cam - Quả khỏe mạnh",
+    "pomegranate_Alternaria": "Lựu - Bệnh đốm thối đen Alternaria",
+    "pomegranate_Anthracnose": "Lựu - Bệnh thán thư quả lựu",
+    "pomegranate_Bacterial_Blight": "Lựu - Bệnh cháy vi khuẩn (Bacterial Blight)",
+    "pomegranate_Cercospora": "Lựu - Bệnh đốm mắt chim Cercospora",
+    "pomegranate_Healthy": "Lựu - Quả khỏe mạnh"
 }
 
 DISEASE_INFO: Dict[str, Dict[str, Any]] = {

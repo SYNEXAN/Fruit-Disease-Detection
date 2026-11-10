@@ -20,8 +20,75 @@ os.environ["MALLOC_MMAP_THRESHOLD_"] = "65536"
 
 from pathlib import Path
 from typing import Dict, Tuple, Optional, Any
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+
+def create_side_by_side_comparison(orig_img, cam_img):
+    """
+    Tạo ảnh ghép song song 2 cột (Ảnh gốc vs Vùng bệnh Grad-CAM)
+    với tiêu đề nhãn rõ ràng, tối ưu kích thước cân đối trên cả Desktop và Mobile.
+    """
+    try:
+        if isinstance(orig_img, str):
+            im_orig = Image.open(orig_img).convert("RGB")
+        elif isinstance(orig_img, np.ndarray):
+            im_orig = Image.fromarray(orig_img)
+        elif isinstance(orig_img, Image.Image):
+            im_orig = orig_img.convert("RGB")
+        else:
+            return cam_img
+
+        if isinstance(cam_img, str):
+            im_cam = Image.open(cam_img).convert("RGB")
+        elif isinstance(cam_img, np.ndarray):
+            im_cam = Image.fromarray(cam_img)
+        elif isinstance(cam_img, Image.Image):
+            im_cam = cam_img.convert("RGB")
+        else:
+            return cam_img
+
+        target_h = 320
+        w_orig = max(10, int(im_orig.width * (target_h / im_orig.height)))
+        im_orig_resized = im_orig.resize((w_orig, target_h), Image.Resampling.LANCZOS)
+
+        w_cam = max(10, int(im_cam.width * (target_h / im_cam.height)))
+        im_cam_resized = im_cam.resize((w_cam, target_h), Image.Resampling.LANCZOS)
+
+        header_h = 32
+        gap = 8
+        total_w = w_orig + gap + w_cam
+        total_h = target_h + header_h
+
+        canvas = Image.new("RGB", (total_w, total_h), (255, 255, 255))
+        draw = ImageDraw.Draw(canvas)
+        try:
+            font = ImageFont.truetype(r"C:\Windows\Fonts\arialbd.ttf", 15)
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Nhãn văn bản tối giản, không icon, không ô vuông nền
+        text_orig = "Ảnh gốc"
+        text_cam = "Ảnh phân tích"
+        text_color = (30, 41, 59)
+
+        # Tính toán căn giữa phía trên mỗi ảnh
+        bbox_orig = draw.textbbox((0, 0), text_orig, font=font)
+        w_t_orig = bbox_orig[2] - bbox_orig[0]
+        x_orig = max(8, (w_orig - w_t_orig) // 2)
+
+        bbox_cam = draw.textbbox((0, 0), text_cam, font=font)
+        w_t_cam = bbox_cam[2] - bbox_cam[0]
+        x_cam = w_orig + gap + max(8, (w_cam - w_t_cam) // 2)
+
+        draw.text((x_orig, 7), text_orig, fill=text_color, font=font)
+        draw.text((x_cam, 7), text_cam, fill=text_color, font=font)
+
+        canvas.paste(im_orig_resized, (0, header_h))
+        canvas.paste(im_cam_resized, (w_orig + gap, header_h))
+        return canvas
+    except Exception as _e:
+        print(f"[App] Lỗi ghép ảnh đối chứng: {_e}")
+        return cam_img
 
 # Ensure root directory is in sys.path
 ROOT_DIR = Path(__file__).resolve().parent
@@ -149,6 +216,7 @@ def run_diagnosis(input_img, orig_cache=None, conf_threshold=0.50):
     info = result["disease_info"]
     pathogen = result.get("pathogen_info", {})
     gradcam_img = result.get("gradcam_image")
+    comparison_img = create_side_by_side_comparison(cached_orig, gradcam_img)
 
     # Kiểm tra nếu độ tin cậy chưa đạt ngưỡng yêu cầu
     confidence_val = best.get("confidence", 0.0)
@@ -162,7 +230,7 @@ def run_diagnosis(input_img, orig_cache=None, conf_threshold=0.50):
 - Hình ảnh có thể bị mờ, thiếu sáng, góc chụp quá xa hoặc triệu chứng chưa rõ ràng.
 - Vui lòng chụp hoặc tải lại ảnh cận cảnh, lấy nét trực tiếp vào vết bệnh để hệ thống chẩn đoán chính xác.
 """
-        yield gradcam_img, warning_md.strip(), cached_orig
+        yield comparison_img, warning_md.strip(), cached_orig
         cleanup_temp_memory()
         return
 
@@ -178,7 +246,7 @@ def run_diagnosis(input_img, orig_cache=None, conf_threshold=0.50):
     ghi_chu_md = f"\n- **Ghi chú thêm**: {ghi_chu}" if ghi_chu else ""
     initial_pathogen_md = f"- **Nhóm tác nhân**: {loai_tac_nhan}\n- **Tác nhân chính**: {tac_nhan_str}{ghi_chu_md}"
 
-    # ⚡ YIELD GIAI ĐOẠN 1: Hiển thị ngay ảnh Grad-CAM và kết quả dự đoán sau ~0.5s
+    # ⚡ YIELD GIAI ĐOẠN 1: Hiển thị ngay ảnh đối chứng (gốc song song Grad-CAM) và kết quả dự đoán sau ~0.5s
     stage1_md = f"""
 ### Kết Quả Dự Đoán:
 - **Tình trạng**: **{best.get('vn_name')}**
@@ -187,7 +255,7 @@ def run_diagnosis(input_img, orig_cache=None, conf_threshold=0.50):
 ---
 *Đang hoàn tất phân tích chi tiết...*
 """
-    yield gradcam_img, stage1_md.strip(), cached_orig
+    yield comparison_img, stage1_md.strip(), cached_orig
 
     # ⚡ GIAI ĐOẠN 2: Gọi Bác sĩ Nông sản (Gemini) để hoàn tất trọn vẹn cả 3 chức năng
     try:
@@ -217,7 +285,7 @@ def run_diagnosis(input_img, orig_cache=None, conf_threshold=0.50):
 #### Đề xuất xử lý:
 {advice_text}
 """
-        yield gradcam_img, final_diagnosis_md.strip(), cached_orig
+        yield comparison_img, final_diagnosis_md.strip(), cached_orig
 
     except Exception as e:
         print(f"[App] Lỗi phân tích Gemini: {e}")
@@ -237,9 +305,9 @@ def run_diagnosis(input_img, orig_cache=None, conf_threshold=0.50):
 - **Phân loại**: {info.get('severity', 'Cảnh báo')}
 - **Xử lý**: {info.get('treatment', 'Theo dõi sát diễn biến vết bệnh và kiểm tra bảo quản.')}
 """
-        yield gradcam_img, fallback_md.strip(), cached_orig
+        yield comparison_img, fallback_md.strip(), cached_orig
     finally:
-        del gradcam_img, result
+        del gradcam_img, comparison_img, result
         cleanup_temp_memory()
         rss_out = get_process_rss_mb()
         if rss_out > 0:
